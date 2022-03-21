@@ -1,0 +1,26 @@
+{
+  "name": "uni-swap",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DerekYeung/uni-swap.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/DerekYeung/uni-swap/issues"
+  },
+  "homepage": "https://github.com/DerekYeung/uni-swap#readme",
+  "dependencies": {
+    "@uniswap/sdk-core": "^3.0.1",
+    "@uniswap/smart-order-router": "^2.5.22",
+    "@uniswap/v3-sdk": "^3.8.2",
+    "ethers": "^5.5.4",
+    "web3": "^1.7.1"
+  }
+}
