@@ -63,6 +63,7 @@ class Master {
     try {
       const result = await Bus.sendRequest(worker, 'quote', contract, decimals);
     } catch (e) {
+      console.log(e.message);
     }
     worker.job--;
     return true;
@@ -70,7 +71,8 @@ class Master {
 
   async test() {
     console.time('all');
-    const all = coins.map(node => {
+    const list = coins.splice(0, 100);
+    const all = list.map(node => {
       return this.quote(node.contract, node.decimals);
     });
     const done = await Promise.all(all);
