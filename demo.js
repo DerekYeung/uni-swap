@@ -1,80 +1,90 @@
-const { AlphaRouter } = require("@uniswap/smart-order-router");
-const { Token, CurrencyAmount, TradeType, Percent } = require('@uniswap/sdk-core');
-const { ethers } = require('ethers');
-const Web3WsProvider = require('web3-providers-ws');
-const bn = require('bn.js');
-
-const V3_SWAP_ROUTER_ADDRESS = '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45';
-const MY_ADDRESS = '0x8086EdC175a651a25cd0Ee545F75c2CF458abf14';
-const web3Provider = new Web3WsProvider('ws://43.129.225.40:7892', {
-  clientConfig: {
-    keepalive: true,
-    keepaliveInterval: 60000, // ms
-  },
-  reconnect: {
-    auto: true,
-    delay: 1000, // ms
-    maxAttempts: false,
-    onTimeout: false
+const path = require.resolve('./worker.js');
+const EventEmitter = require('events');
+const { Worker } = require('worker_threads');
+const Bus = require('./bus');
+const coins = require('./moe_coins.json').RECORDS;
+const numWorkers = 16;
+class Master {
+  constructor() {
+    this.workers = [];
+    this.workerRequests = [];
   }
-});
+  init() {
+    const path = require.resolve('./worker.js');
+    for (let i = 0; i < numWorkers; i++) {
+      const worker = new Worker(path, { stderr: true, workerData: {
+        id: i,
+      } });
 
-const provider = new ethers.providers.Web3Provider(web3Provider);
-const router = new AlphaRouter({ chainId: 1, provider });
+      worker.id = i;
+      worker.job = 0;
+      worker.available = true;
+      worker.executing = '';
+      worker.missingDeps = new Set();
+      worker.startTime = 0;
 
-const WETH = new Token(
-  1,
-  '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2',
-  18,
-  'WETH',
-  'Wrapped Ether'
-);
+      this.workers.push(worker);
 
-const USDC = new Token(
-  1,
-  '0x6b3595068778dd592e39a122f4f5a5cf09c90fe2',
-  6,
-  'USDC',
-  'USD//C'
-);
+      const cacheGet = txid => this.onCacheGet(txid);
+      const blockchainFetch = txid => this.onBlockchainFetch(worker, txid);
+      const missDeps = txid => this.onMissDeps(worker, txid);
+      const listTx = txids => this.listTx(txids);
+      const checkCacheFromGuardian = txid => this.checkCacheFromGuardian(txid);
+      const handlers = { missDeps, cacheGet, blockchainFetch, listTx, checkCacheFromGuardian };
 
-const typedValueParsed = Math.floor(1 * (10 ** 18)).toFixed();
-const wethAmount = CurrencyAmount.fromRawAmount(WETH, new bn(typedValueParsed));
-console.log(wethAmount);
+      Bus.listen(worker, handlers);
 
-async function quote() {
-  console.time('quote');
-  const route = await router.route(
-    wethAmount,
-    USDC,
-    TradeType.EXACT_INPUT,
-    {
-      recipient: MY_ADDRESS,
-      slippageTolerance: new Percent(5, 100),
-      deadline: Math.floor(Date.now()/1000 +1800)
+      if (this.workerRequests.length) {
+        worker.available = false;
+        this.workerRequests.shift()(worker);
+      }
     }
-  );
-  console.timeEnd('quote');
+  }
 
-  console.log(`Quote Exact In: ${route.quote.toFixed(2)}`);
-  console.log(`Gas Adjusted Quote In: ${route.quoteGasAdjusted.toFixed(2)}`);
-  console.log(`Gas Used USD: ${route.estimatedGasUsedUSD.toFixed(6)}`);
+  requestWorker() {
+    const clients = this.workers.map((worker, index) => {
+      const job = worker.job;
+      return {
+        job,
+        index
+      };
+    })
+    clients.sort((a, b) => {
+      return a.job - b.job;
+    });
+
+    const worker = this.workers[clients[0].index];
+    worker.job++;
+    return worker;
+  }
+
+  async quote(contract, decimals) {
+    const worker = await this.requestWorker();
+    try {
+      const result = await Bus.sendRequest(worker, 'quote', contract, decimals);
+    } catch (e) {
+    }
+    worker.job--;
+    return true;
+  }
+
+  async test() {
+    console.time('all');
+    const all = coins.map(node => {
+      return this.quote(node.contract, node.decimals);
+    });
+    const done = await Promise.all(all);
+    const success = done.filter(r => {
+      return !!r;
+    });
+    console.timeEnd('all')
+    console.log(coins.length, success.length);
+  }
 }
 
-async function main(params) {
 
-  await quote();
-  await quote();
-
-  // const transaction = {
-  //   data: route.methodParameters.calldata,
-  //   to: V3_SWAP_ROUTER_ADDRESS,
-  //   value: BigNumber.from(route.methodParameters.value),
-  //   from: MY_ADDRESS,
-  //   gasPrice: BigNumber.from(route.gasPriceWei),
-  // };
-
-
-  // await web3Provider.sendTransaction(transaction);
-}
-main();
+const master = new Master();
+master.init();
+master.test().then(() => {
+  master.test();
+});
