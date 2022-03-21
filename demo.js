@@ -71,7 +71,7 @@ class Master {
 
   async test() {
     console.time('all');
-    const list = coins.splice(0, 100);
+    const list = coins.splice(0, 10);
     const all = list.map(node => {
       return this.quote(node.contract, node.decimals);
     });
