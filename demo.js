@@ -1,9 +1,12 @@
+require('dotenv').config();
 const path = require.resolve('./worker.js');
 const EventEmitter = require('events');
 const { Worker } = require('worker_threads');
 const Bus = require('./bus');
 const coins = require('./moe_coins.json').RECORDS;
-const numWorkers = 16;
+const numWorkers = process.env.WORKER || 1;
+
+const RPC = process.env.RPC;
 class Master {
   constructor() {
     this.workers = [];
@@ -14,6 +17,7 @@ class Master {
     for (let i = 0; i < numWorkers; i++) {
       const worker = new Worker(path, { stderr: true, workerData: {
         id: i,
+        RPC
       } });
 
       worker.id = i;
@@ -62,8 +66,9 @@ class Master {
     const worker = await this.requestWorker();
     try {
       const result = await Bus.sendRequest(worker, 'quote', contract, decimals);
+      console.log('quote success')
     } catch (e) {
-      console.log(e.message);
+      console.log('quote error', contract, e.message);
     }
     worker.job--;
     return true;
@@ -72,15 +77,20 @@ class Master {
   async test() {
     console.time('all');
     const list = coins.splice(0, 10);
-    const all = list.map(node => {
-      return this.quote(node.contract, node.decimals);
-    });
-    const done = await Promise.all(all);
-    const success = done.filter(r => {
-      return !!r;
-    });
+    // for (let i = 0; i < list.length; i++) {
+    //   await this.quote(list[i].contract, list[i].decimals);
+    // }
+    await this.quote('0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9', 18);
+
+    // const all = list.map(node => {
+    //   return this.quote(node.contract, node.decimals);
+    // });
+    // const done = await Promise.all(all);
+    // const success = done.filter(r => {
+    //   return !!r;
+    // });
     console.timeEnd('all')
-    console.log(coins.length, success.length);
+    // console.log(coins.length, success.length);
   }
 }
 

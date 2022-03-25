@@ -10,21 +10,22 @@ setInterval(() => {
 const unitxtime = () => { return Math.round(new Date().getTime()); };
 const address = '0x8086EdC175a651a25cd0Ee545F75c2CF458abf14'.toUpperCase();
 
-// const subscription = web3.eth.subscribe('pendingTransactions', function(error, result) {
-//   if (error) { console.log(error); }
-//   // console.log(result);
-// });
-// subscription.on('data', async function(hash) {
-//   const tx = await web3.eth.getTransaction(hash);
-
-//   if (tx) {
-//     const from = (tx.from || '').toUpperCase();
-//     console.log(unitxtime(), tx.hash, tx);
-//     if (from === address) {
-//     }
-//   }
-// });
-
-web3.eth.getTransaction('0xb31ac67e86e6fb6756a14ac90d020cc52c3ad60dfb331480bc3fa90eb404f222').then(tx => {
-  console.log(tx);
+const subscription = web3.eth.subscribe('pendingTransactions', function(error, result) {
+  if (error) { console.log(error); }
+  console.log(result);
 });
+subscription.on('data', async function(hash) {
+  console.log(hash);
+  // const tx = await web3.eth.getTransaction(hash);
+
+  // if (tx) {
+  //   const from = (tx.from || '').toUpperCase();
+  //   console.log(unitxtime(), tx.hash, tx);
+  //   if (from === address) {
+  //   }
+  // }
+});
+
+// web3.eth.getTransaction('0xb31ac67e86e6fb6756a14ac90d020cc52c3ad60dfb331480bc3fa90eb404f222').then(tx => {
+//   console.log(tx);
+// });

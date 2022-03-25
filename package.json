@@ -20,7 +20,10 @@
     "@uniswap/sdk-core": "^3.0.1",
     "@uniswap/smart-order-router": "^2.5.22",
     "@uniswap/v3-sdk": "^3.8.2",
+    "dotenv": "^16.0.0",
     "ethers": "^5.5.4",
+    "koa": "^2.13.4",
+    "simple-uniswap-sdk": "^3.6.2",
     "uuid": "^8.3.2",
     "web3": "^1.7.1"
   }

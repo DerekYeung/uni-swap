@@ -23,40 +23,44 @@ const web3Provider = new Web3WsProvider('ws://43.129.225.40:7892', {
   }
 });
 
-const provider = new ethers.providers.Web3Provider(web3Provider);
+// const provider = new ethers.providers.Web3Provider(web3Provider);
+const provider = new ethers.providers.StaticJsonRpcProvider('http://43.129.225.40:7891');
 const router = new AlphaRouter({ chainId: 1, provider });
 
 async function quote(contract, decimals) {
+  contract = '0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9';
+  decimals = 18;
   // console.time('quote');
-  const WETH = new Token(
+  const USDT = new Token(
+    1,
+    '0xdac17f958d2ee523a2206206994597c13d831ec7',
+    6,
+    'USDT',
+    'USDT'
+  );
+
+  const target = new Token(
     1,
     contract,
     decimals,
-    'WETH',
-    'Wrapped Ether'
-  );
-
-  const USDC = new Token(
-    1,
-    '0x6b3595068778dd592e39a122f4f5a5cf09c90fe2',
-    6,
     'USDC',
     'USD//C'
   );
 
-  const typedValueParsed = Math.floor(1 * (10 ** 18)).toFixed();
-  const wethAmount = CurrencyAmount.fromRawAmount(WETH, new bn(typedValueParsed));
+  const typedValueParsed = Math.floor(15000 * (10 ** 6)).toFixed();
+  const sellAmount = CurrencyAmount.fromRawAmount(USDT, new bn(typedValueParsed));
 
   const route = await router.route(
-    wethAmount,
-    USDC,
+    sellAmount,
+    target,
     TradeType.EXACT_INPUT,
-    {
-      recipient: MY_ADDRESS,
-      slippageTolerance: new Percent(5, 100),
-      deadline: Math.floor(Date.now()/1000 +1800)
-    }
+    // {
+    //   recipient: MY_ADDRESS,
+    //   slippageTolerance: new Percent(5, 100),
+    //   deadline: Math.floor(Date.now()/1000 +1800)
+    // }
   );
+  // console.log(route);
   return route.quote;
   // console.timeEnd('quote');
 
