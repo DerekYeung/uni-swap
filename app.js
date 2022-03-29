@@ -12,17 +12,20 @@ quoter.init();
 // logger
 
 const logger = console;
-const cached = {};
 const users = {};
 let Block = null;
+const Cached = {};
 
 function onNewBlock(block) {
+  console.log('on new block', block.number);
   Block = block;
+  for (const k in Cached) {
+    const number = Cached[k].blockNumber;
+    if (number < block.number) {
+      delete Cached[k];
+    }
+  }
 }
-
-eth.getBlock('latest').then(block => {
-  onNewBlock(block);
-});
 
 const subscriptions = {}
 subscriptions.newBlockHeaders = eth.subscribe('newBlockHeaders')
@@ -60,14 +63,29 @@ provider.on('connect', () => {
   console.log('rpc connected');
 });
 
-server.listen(config.PORT || port, () => {
-  console.log(`app run at : http://127.0.0.1:${config.PORT}`);
-})
+
+
+function getCacheKey(params) {
+  return `${params.from}/${params.to}/${params.amount}`;
+}
 
 io.on('connection', socket => {
   socket.on('quote', async (params, cb) => {
     try {
-      const quote = await quoter.quote(params);
+      let cachedResult;
+      const cachekey = getCacheKey(params);
+      if (cachedResult = Cached[cachekey]) {
+        if (cachedResult.blockNumber < Block.number) {
+          delete cachedResult[cachekey];
+          cachedResult = null;
+        }
+      }
+      console.log('cachedResult', cachedResult)
+      const quote = cachedResult ? cachedResult : await quoter.quote(params);
+      quote.blockNumber = Block.number;
+      if (!cachedResult) {
+        Cached[cachekey] = quote;
+      }
       cb && cb(quote);
     } catch (e) {
       cb && cb({
@@ -77,3 +95,11 @@ io.on('connection', socket => {
     }
   });
 })
+
+eth.getBlock('latest').then(block => {
+  onNewBlock(block);
+}).then(() => {
+  server.listen(config.PORT || port, () => {
+    console.log(`app run at : http://127.0.0.1:${config.PORT}`);
+  })
+});
