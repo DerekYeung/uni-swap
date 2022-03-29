@@ -20,7 +20,7 @@ WORKDIR /app/server
 ENV EGG_SERVER_ENV prod
 
 # 暴露容器端口
-EXPOSE 7100
+EXPOSE 7300
 
 # 启动node应用
 CMD node app
