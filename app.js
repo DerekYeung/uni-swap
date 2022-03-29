@@ -80,7 +80,6 @@ io.on('connection', socket => {
           cachedResult = null;
         }
       }
-      console.log('cachedResult', cachedResult)
       const quote = cachedResult ? cachedResult : await quoter.quote(params);
       quote.blockNumber = Block.number;
       if (!cachedResult) {
