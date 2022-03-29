@@ -1,70 +1,62 @@
 const { parentPort, workerData } = require('worker_threads');
+const { RPC } = require('./config');
 
-const { AlphaRouter } = require("@uniswap/smart-order-router");
-const { Token, CurrencyAmount, TradeType, Percent } = require('@uniswap/sdk-core');
-const { ethers } = require('ethers');
-const Web3WsProvider = require('web3-providers-ws');
-const bn = require('bn.js');
+const { UniswapPair, ChainId, UniswapVersion, ETH, UniswapPairSettings } = require('simple-uniswap-sdk');
 const Bus = require('./bus');
 Bus.listen(parentPort, { quote });
 
-const V3_SWAP_ROUTER_ADDRESS = '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45';
-const MY_ADDRESS = '0x8086EdC175a651a25cd0Ee545F75c2CF458abf14';
-const web3Provider = new Web3WsProvider('ws://43.129.225.40:7892', {
-  clientConfig: {
-    keepalive: true,
-    keepaliveInterval: 60000, // ms
-  },
-  reconnect: {
-    auto: true,
-    delay: 1000, // ms
-    maxAttempts: false,
-    onTimeout: false
+const pairs = {
+};
+
+async function quote({
+  from = '',
+  to = '',
+  amount = 15000
+}) {
+  const pair = `${from}/${to}`;
+  let uniswapPair = pairs[pair];
+  if (!uniswapPair) {
+    const master = new UniswapPair({
+      // the contract address of the token you want to convert FROM
+      // fromTokenContractAddress: ETH.MAINNET().contractAddress,
+      fromTokenContractAddress: from,
+      // the contract address of the token you want to convert TO
+      toTokenContractAddress: to,
+      // the ethereum address of the user using this part of the dApp
+      ethereumAddress: '0x8086EdC175a651a25cd0Ee545F75c2CF458abf14',
+      chainId: ChainId.MAINNET,
+      providerUrl: 'http://' + RPC,
+      // providerUrl: 'http://47.242.84.11:7891',
+      // ethereumProvider: web3Provider,
+      settings: new UniswapPairSettings({
+        // if not supplied it will use `0.005` which is 0.5%
+        // please pass it in as a full number decimal so 0.7%
+        // would be 0.007
+        slippage: 0.005,
+        // if not supplied it will use 20 a deadline minutes
+        deadlineMinutes: 20,
+        // if not supplied it will try to use multihops
+        // if this is true it will require swaps to direct
+        // pairs
+        disableMultihops: false,
+        // for example if you only wanted to turn on quotes for v3 and not v3
+        // you can only support the v3 enum same works if you only want v2 quotes
+        // if you do not supply anything it query both v2 and v3
+        uniswapVersions: [UniswapVersion.v2, UniswapVersion.v3],
+      }),
+    });
+    const uniswapPairFactory = await master.createFactory();
+    pairs[pair] = uniswapPairFactory;
+    uniswapPair = pairs[pair];
   }
-});
-
-// const provider = new ethers.providers.Web3Provider(web3Provider);
-const provider = new ethers.providers.StaticJsonRpcProvider('http://43.129.225.40:7891');
-const router = new AlphaRouter({ chainId: 1, provider });
-
-async function quote(contract, decimals) {
-  contract = '0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9';
-  decimals = 18;
-  // console.time('quote');
-  const USDT = new Token(
-    1,
-    '0xdac17f958d2ee523a2206206994597c13d831ec7',
-    6,
-    'USDT',
-    'USDT'
-  );
-
-  const target = new Token(
-    1,
-    contract,
-    decimals,
-    'USDC',
-    'USD//C'
-  );
-
-  const typedValueParsed = Math.floor(15000 * (10 ** 6)).toFixed();
-  const sellAmount = CurrencyAmount.fromRawAmount(USDT, new bn(typedValueParsed));
-
-  const route = await router.route(
-    sellAmount,
-    target,
-    TradeType.EXACT_INPUT,
-    // {
-    //   recipient: MY_ADDRESS,
-    //   slippageTolerance: new Percent(5, 100),
-    //   deadline: Math.floor(Date.now()/1000 +1800)
-    // }
-  );
-  // console.log(route);
-  return route.quote;
-  // console.timeEnd('quote');
-
-  // console.log(`Quote Exact In: ${route.quote.toFixed(2)}`);
-  // console.log(`Gas Adjusted Quote In: ${route.quoteGasAdjusted.toFixed(2)}`);
-  // console.log(`Gas Used USD: ${route.estimatedGasUsedUSD.toFixed(6)}`);
+  const trade = await uniswapPair.trade(amount, 'input');
+  trade.destroy();
+  return {
+    from,
+    to,
+    amount,
+    baseConvertRequest: trade.baseConvertRequest,
+    minAmountConvertQuote: trade.minAmountConvertQuote,
+    expectedConvertQuote: trade.expectedConvertQuote
+  };
 }

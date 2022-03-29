@@ -1,7 +1,40 @@
 const Koa = require('koa');
 const app = new Koa();
 
+const server = require('http').Server(app.callback());
+const io = require('socket.io')(server);
+const config = require('./config');
+const Quoter = require('./quoter');
+const { eth, provider } = require('./web3');
+const quoter = new Quoter();
+quoter.init();
+
 // logger
+
+const logger = console;
+const cached = {};
+const users = {};
+let Block = null;
+
+function onNewBlock(block) {
+  Block = block;
+}
+
+eth.getBlock('latest').then(block => {
+  onNewBlock(block);
+});
+
+const subscriptions = {}
+subscriptions.newBlockHeaders = eth.subscribe('newBlockHeaders')
+.on('connected', subscriptionId => {
+  console.log(`subscribed newBlockHeaders => ${subscriptionId}`);
+})
+.on('data', block => {
+  onNewBlock(block);
+})
+.on('error', e => {
+  console.error(`subscribe error: ${e.message}`);
+});
 
 app.use(async (ctx, next) => {
   await next();
@@ -23,5 +56,24 @@ app.use(async (ctx, next) => {
 app.use(async ctx => {
   ctx.body = 'Hello World';
 });
+provider.on('connect', () => {
+  console.log('rpc connected');
+});
 
-app.listen(7002);
+server.listen(config.PORT || port, () => {
+  console.log(`app run at : http://127.0.0.1:${config.PORT}`);
+})
+
+io.on('connection', socket => {
+  socket.on('quote', async (params, cb) => {
+    try {
+      const quote = await quoter.quote(params);
+      cb && cb(quote);
+    } catch (e) {
+      cb && cb({
+        error: 1,
+        message: e.message
+      });
+    }
+  });
+})

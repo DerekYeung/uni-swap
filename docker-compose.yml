@@ -1,0 +1,17 @@
+version: '3.0'
+
+services:
+  main:
+    container_name: uni-api
+    image: uni-api
+    environment:
+      - RPC=172.19.32.18:7891
+      - WSRPC=172.19.32.18:7892
+      - WORKERS=16
+      - PORT=7300
+    ports:
+      - "7300:7300"
+    volumes:
+      - /data/logs:/data/logs:rw
+    links:
+      - geth

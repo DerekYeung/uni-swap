@@ -1,17 +1,5 @@
 const { UniswapPair, ChainId, UniswapVersion, ETH, UniswapPairSettings } = require('simple-uniswap-sdk');
-const Web3WsProvider = require('web3-providers-ws');
-const web3Provider = new Web3WsProvider('ws://43.129.225.40:7892', {
-  clientConfig: {
-    keepalive: true,
-    keepaliveInterval: 60000, // ms
-  },
-  reconnect: {
-    auto: true,
-    delay: 1000, // ms
-    maxAttempts: false,
-    onTimeout: false
-  }
-});
+
 const uniswapPair = new UniswapPair({
   // the contract address of the token you want to convert FROM
   // fromTokenContractAddress: ETH.MAINNET().contractAddress,
@@ -22,13 +10,13 @@ const uniswapPair = new UniswapPair({
   ethereumAddress: '0x8086EdC175a651a25cd0Ee545F75c2CF458abf14',
   chainId: ChainId.MAINNET,
   providerUrl: 'http://43.129.225.40:7891',
-  // providerUrl: 'http://47.75.118.108:7891',
+  // providerUrl: 'http://47.242.84.11:7891',
   // ethereumProvider: web3Provider,
   settings: new UniswapPairSettings({
     // if not supplied it will use `0.005` which is 0.5%
     // please pass it in as a full number decimal so 0.7%
     // would be 0.007
-    slippage: 0.005,
+    slippage: 0.001,
     // if not supplied it will use 20 a deadline minutes
     deadlineMinutes: 20,
     // if not supplied it will try to use multihops
@@ -46,10 +34,11 @@ const uniswapPair = new UniswapPair({
 async function main() {
   console.time('quote');
   const uniswapPairFactory = await uniswapPair.createFactory();
-  const trade = await uniswapPairFactory.trade(1000, 'input');  
+  const trade = await uniswapPairFactory.trade(10000, 'input');  
   // const best = await uniswapPairFactory.findAllPossibleRoutesWithQuote(1000, 'input');  
-  console.log(trade)
+  // console.log(trade)
   // console.log(best);
+  console.log(trade);
   console.log(trade.baseConvertRequest)
   console.log(trade.minAmountConvertQuote)
   console.log(trade.expectedConvertQuote)

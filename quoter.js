@@ -1,21 +1,19 @@
 require('dotenv').config();
-const path = require.resolve('./worker.js');
+const workerPath = require.resolve('./worker.js');
 const EventEmitter = require('events');
 const { Worker } = require('worker_threads');
+const { RPC, WORKERS } = require('./config');
 const Bus = require('./bus');
 const coins = require('./moe_coins.json').RECORDS;
-const numWorkers = process.env.WORKER || 1;
 
-const RPC = process.env.RPC;
-class Master {
+class Quoter {
   constructor() {
     this.workers = [];
     this.workerRequests = [];
   }
   init() {
-    const path = require.resolve('./worker.js');
-    for (let i = 0; i < numWorkers; i++) {
-      const worker = new Worker(path, { stderr: true, workerData: {
+    for (let i = 0; i < WORKERS; i++) {
+      const worker = new Worker(workerPath, { stderr: true, workerData: {
         id: i,
         RPC
       } });
@@ -62,41 +60,46 @@ class Master {
     return worker;
   }
 
-  async quote(contract, decimals) {
+  async quote(params = {}) {
     const worker = await this.requestWorker();
     try {
-      const result = await Bus.sendRequest(worker, 'quote', contract, decimals);
-      console.log('quote success')
+      const result = await Bus.sendRequest(worker, 'quote', params);
+      return result;
     } catch (e) {
-      console.log('quote error', contract, e.message);
+      console.log('quote error', params, e.message);
+      throw e;
+    } finally {
+      worker.job--;
     }
-    worker.job--;
-    return true;
   }
 
   async test() {
     console.time('all');
-    const list = coins.splice(0, 10);
+    const list = coins.splice(0, 100);
     // for (let i = 0; i < list.length; i++) {
     //   await this.quote(list[i].contract, list[i].decimals);
     // }
-    await this.quote('0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9', 18);
+    await this.quote({
+      from: '0xdac17f958d2ee523a2206206994597c13d831ec7',
+      to: '0x7Fc66500c84A76Ad7e9c93437bFc5Ac33E2DDaE9',
+      amount: 15000
+    });
 
-    // const all = list.map(node => {
-    //   return this.quote(node.contract, node.decimals);
-    // });
-    // const done = await Promise.all(all);
-    // const success = done.filter(r => {
-    //   return !!r;
-    // });
+    const all = list.map(node => {
+      return this.quote({
+        from: '0xdac17f958d2ee523a2206206994597c13d831ec7',
+        to: node.contract,
+        amount: 15000
+      });
+    });
+    const done = await Promise.all(all);
+    const success = done.filter(r => {
+      console.log(r);
+      return !!r;
+    });
     console.timeEnd('all')
     // console.log(coins.length, success.length);
   }
 }
 
-
-const master = new Master();
-master.init();
-master.test().then(() => {
-  master.test();
-});
+module.exports = Quoter;
