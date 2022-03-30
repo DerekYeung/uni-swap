@@ -54,9 +54,9 @@ async function quote({
   return {
     from,
     to,
-    amount,
+    fromToken: amount,
     baseConvertRequest: trade.baseConvertRequest,
     minAmountConvertQuote: trade.minAmountConvertQuote,
-    expectedConvertQuote: trade.expectedConvertQuote
+    toToken: trade.expectedConvertQuote
   };
 }
