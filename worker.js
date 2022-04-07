@@ -45,7 +45,7 @@ async function quote({
     to.decimals,
   );
 
-  const typedValueParsed = Math.floor(amount * (10 ** from.decimals)).toFixed();
+  const typedValueParsed = Math.floor(parseFloat(amount) * (10 ** from.decimals)).toFixed();
   const sellAmount = CurrencyAmount.fromRawAmount(FROM, new bn(typedValueParsed));
 
   const route = await router.route(
