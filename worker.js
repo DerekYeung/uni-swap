@@ -6,7 +6,7 @@ const { ethers } = require('ethers');
 const Web3WsProvider = require('web3-providers-ws');
 const bn = require('bn.js');
 const Bus = require('./bus');
-const { WSRPC } = require('./config');
+const { WSRPC, RPC } = require('./config');
 Bus.listen(parentPort, { quote });
 
 const V3_SWAP_ROUTER_ADDRESS = '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45';
@@ -24,8 +24,8 @@ const web3Provider = new Web3WsProvider('ws://' + WSRPC, {
   }
 });
 
-const provider = new ethers.providers.Web3Provider(web3Provider);
-// const provider = new ethers.providers.StaticJsonRpcProvider('http://43.129.225.40:7891');
+// const provider = new ethers.providers.Web3Provider(web3Provider);
+const provider = new ethers.providers.StaticJsonRpcProvider('http://' + RPC);
 const router = new AlphaRouter({ chainId: 1, provider });
 
 async function quote({
@@ -59,7 +59,9 @@ async function quote({
     // }
   );
   if (!route) {
-    throw new Error('Missing route');
+    return {
+      error: 'Missing route'
+    };
   }
   // console.log(`Quote Exact In: ${route.quote.toFixed(2)}`);
   // console.log(`Gas Adjusted Quote In: ${route.quoteGasAdjusted.toFixed(2)}`);
