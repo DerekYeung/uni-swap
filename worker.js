@@ -57,6 +57,9 @@ async function quote({
     //   deadline: Math.floor(Date.now()/1000 +1800)
     // }
   );
+  if (!route) {
+    throw new Error('Missing route');
+  }
   // console.log(`Quote Exact In: ${route.quote.toFixed(2)}`);
   // console.log(`Gas Adjusted Quote In: ${route.quoteGasAdjusted.toFixed(2)}`);
   // console.log(`Gas Used USD: ${route.estimatedGasUsedUSD.toFixed(6)}`);
