@@ -6,11 +6,12 @@ const { ethers } = require('ethers');
 const Web3WsProvider = require('web3-providers-ws');
 const bn = require('bn.js');
 const Bus = require('./bus');
+const { WSRPC } = require('./config');
 Bus.listen(parentPort, { quote });
 
 const V3_SWAP_ROUTER_ADDRESS = '0x68b3465833fb72A70ecDF485E0e4C7bD8665Fc45';
 const MY_ADDRESS = '0x8086EdC175a651a25cd0Ee545F75c2CF458abf14';
-const web3Provider = new Web3WsProvider('ws://43.129.225.40:7892', {
+const web3Provider = new Web3WsProvider('ws://' + WSRPC, {
   clientConfig: {
     keepalive: true,
     keepaliveInterval: 60000, // ms
