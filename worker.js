@@ -66,8 +66,10 @@ async function quote({
   // console.log(`Gas Used USD: ${route.estimatedGasUsedUSD.toFixed(6)}`);
 
   return {
-    fromToken: amount,
-    toToken: route.quote.toFixed(to.decimals),
+    from: from.contract,
+    to: to.contract,
+    fromToken: parseFloat(amount),
+    toToken: parseFloat(route.quote.toFixed(to.decimals)),
     blockNumber: route.blockNumber.toNumber(),
   };
   // console.timeEnd('quote');
