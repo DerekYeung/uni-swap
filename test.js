@@ -4,7 +4,12 @@ const web3 = new Web3(new Web3.providers.WebsocketProvider('ws://43.129.225.40:7
 web3.eth.getBlockNumber().then(n => console.log('block number', n));
 web3.eth.isSyncing().then(n => console.log('syncing', n));
 setInterval(() => {
-  web3.eth.isSyncing().then(n => console.log('syncing', n));
+  web3.eth.isSyncing().then(n => {
+    if (n) {
+      console.log('syncing', n);
+      console.log(n.currentBlock / n.highestBlock);
+    }
+  });
 }, 1000);
 
 const unitxtime = () => { return Math.round(new Date().getTime()); };

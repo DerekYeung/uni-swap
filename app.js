@@ -69,22 +69,34 @@ function getCacheKey(params) {
   return `${params.from}/${params.to}/${params.amount}`;
 }
 
+async function quoteAndCache(params) {
+  const key = getCacheKey(params);
+  const quote = await quoter.quote(params);
+  const cached = Cached[key];
+  if (!quote.blockNumber) {
+    quote.blockNumber = Block.number;
+  }
+  if (!cached || quote.blockNumber > cached.blockNumber) {
+    Cached[key] = quote;
+  }
+  return quote;
+}
+
 io.on('connection', socket => {
   socket.on('quote', async (params, cb) => {
     try {
       let cachedResult;
       const cachekey = getCacheKey(params);
       if (cachedResult = Cached[cachekey]) {
-        if (cachedResult.blockNumber < Block.number) {
-          delete cachedResult[cachekey];
+        const ex = Block.number - cachedResult.blockNumber;
+        if (ex >= 1) {
+          quoteAndCache(params);
+        }
+        if (ex >= 3) {
           cachedResult = null;
         }
       }
-      const quote = cachedResult ? cachedResult : await quoter.quote(params);
-      quote.blockNumber = Block.number;
-      if (!cachedResult) {
-        Cached[cachekey] = quote;
-      }
+      const quote = cachedResult ? cachedResult : await quoteAndCache(params);
       cb && cb(quote);
     } catch (e) {
       cb && cb({

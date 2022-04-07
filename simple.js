@@ -3,9 +3,9 @@ const { UniswapPair, ChainId, UniswapVersion, ETH, UniswapPairSettings } = requi
 const uniswapPair = new UniswapPair({
   // the contract address of the token you want to convert FROM
   // fromTokenContractAddress: ETH.MAINNET().contractAddress,
-  fromTokenContractAddress: '0xdac17f958d2ee523a2206206994597c13d831ec7',
+  fromTokenContractAddress: '0x8f693ca8d21b157107184d29d398a8d082b38b76',
   // the contract address of the token you want to convert TO
-  toTokenContractAddress: '0x6B3595068778DD592e39A122f4f5a5cF09C90fE2',
+  toTokenContractAddress: '0xdac17f958d2ee523a2206206994597c13d831ec7',
   // the ethereum address of the user using this part of the dApp
   ethereumAddress: '0x8086EdC175a651a25cd0Ee545F75c2CF458abf14',
   chainId: ChainId.MAINNET,
