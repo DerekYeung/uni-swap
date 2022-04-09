@@ -1,6 +1,6 @@
 'use strict';
 const Web3 = require('web3');
-const web3 = new Web3(new Web3.providers.WebsocketProvider('ws://43.129.225.40:7892'));
+const web3 = new Web3(new Web3.providers.WebsocketProvider('ws://127.0.0.1:8892'));
 web3.eth.getBlockNumber().then(n => console.log('block number', n));
 web3.eth.isSyncing().then(n => console.log('syncing', n));
 setInterval(async () => {
