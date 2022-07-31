@@ -33,47 +33,59 @@ async function quote({
   to = '',
   amount = 0
 }) {
-  const FROM = new Token(
-    1,
-    from.contract,
-    from.decimals,
-  );
+  try {
+    const FROM = new Token(
+      1,
+      from.contract,
+      from.decimals,
+    );
 
-  const TO = new Token(
-    1,
-    to.contract,
-    to.decimals,
-  );
+    const TO = new Token(
+      1,
+      to.contract,
+      to.decimals,
+    );
 
-  const typedValueParsed = Math.floor(parseFloat(amount) * (10 ** from.decimals)).toFixed();
-  const sellAmount = CurrencyAmount.fromRawAmount(FROM, new bn(typedValueParsed));
+    const typedValueParsed = Math.floor(parseFloat(amount) * (10 ** from.decimals)).toFixed();
+    const sellAmount = CurrencyAmount.fromRawAmount(FROM, new bn(typedValueParsed));
 
-  const route = await router.route(
-    sellAmount,
-    TO,
-    TradeType.EXACT_INPUT,
-    // {
-    //   recipient: MY_ADDRESS,
-    //   slippageTolerance: new Percent(5, 100),
-    //   deadline: Math.floor(Date.now()/1000 +1800)
-    // }
-  );
-  if (!route) {
+    const route = await router.route(
+      sellAmount,
+      TO,
+      TradeType.EXACT_INPUT,
+      // {
+      //   recipient: MY_ADDRESS,
+      //   slippageTolerance: new Percent(5, 100),
+      //   deadline: Math.floor(Date.now()/1000 +1800)
+      // }
+    );
+    if (!route) {
+      return {
+        from: from.contract,
+        to: to.contract,
+        fromToken: parseFloat(amount),
+        error: 'Missing route'
+      };
+    }
+    // console.log(`Quote Exact In: ${route.quote.toFixed(2)}`);
+    // console.log(`Gas Adjusted Quote In: ${route.quoteGasAdjusted.toFixed(2)}`);
+    // console.log(`Gas Used USD: ${route.estimatedGasUsedUSD.toFixed(6)}`);
+
     return {
-      error: 'Missing route'
+      from: from.contract,
+      to: to.contract,
+      fromToken: parseFloat(amount),
+      toToken: parseFloat(route.quote.toFixed(to.decimals)),
+      blockNumber: route.blockNumber.toNumber(),
     };
+  } catch (e) {
+    return {
+      from: from.contract,
+      to: to.contract,
+      fromToken: parseFloat(amount),
+      error: e.message
+    }
   }
-  // console.log(`Quote Exact In: ${route.quote.toFixed(2)}`);
-  // console.log(`Gas Adjusted Quote In: ${route.quoteGasAdjusted.toFixed(2)}`);
-  // console.log(`Gas Used USD: ${route.estimatedGasUsedUSD.toFixed(6)}`);
-
-  return {
-    from: from.contract,
-    to: to.contract,
-    fromToken: parseFloat(amount),
-    toToken: parseFloat(route.quote.toFixed(to.decimals)),
-    blockNumber: route.blockNumber.toNumber(),
-  };
   // console.timeEnd('quote');
 
 }
