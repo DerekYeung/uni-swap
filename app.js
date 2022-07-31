@@ -1,4 +1,6 @@
 const Koa = require('koa');
+
+const Router = require('@koa/router');
 const app = new Koa();
 
 const server = require('http').Server(app.callback());
@@ -6,7 +8,13 @@ const io = require('socket.io')(server);
 const config = require('./config');
 const Quoter = require('./quoter');
 const { eth, provider } = require('./web3');
+const NodeCache = require('node-cache');
 const quoter = new Quoter();
+const router = new Router();
+const Cache = new NodeCache({
+  stdTTL: 60
+})
+
 quoter.init();
 
 // logger
@@ -39,11 +47,37 @@ subscriptions.newBlockHeaders = eth.subscribe('newBlockHeaders')
   console.error(`subscribe error: ${e.message}`);
 });
 
+router.get('/quote', async (ctx) => {
+  const fromToken = ctx.query.fromToken;
+  const fromDecimals = ctx.query.fromDecimals || 18;
+  const toToken = ctx.query.toToken;
+  const toDecimals = ctx.query.toDecimals || 18;
+  const amount = ctx.query.amount;
+  const params = {
+    from: {
+      contract: fromToken,
+      decimals: fromDecimals
+    },
+    to: {
+      contract: toToken,
+      decimals: toDecimals
+    },
+    amount: amount,
+  };
+  const quote = await quoteAndCache(params);
+  ctx.body = {
+    quote
+  };
+});
 app.use(async (ctx, next) => {
   await next();
   const rt = ctx.response.get('X-Response-Time');
   console.log(`${ctx.method} ${ctx.url} - ${rt}`);
 });
+
+app
+  .use(router.routes())
+  .use(router.allowedMethods());
 
 // x-response-time
 
@@ -62,8 +96,6 @@ app.use(async ctx => {
 provider.on('connect', () => {
   console.log('rpc connected');
 });
-
-
 
 function getCacheKey(params) {
   return `${params.from.contract}/${params.to.contract}/${params.amount}`;
