@@ -59,6 +59,7 @@ async function quote({
       //   deadline: Math.floor(Date.now()/1000 +1800)
       // }
     );
+    console.log('route', route);
     if (!route) {
       return {
         from: from.contract,
