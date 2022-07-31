@@ -66,6 +66,7 @@ router.get('/quote', async (ctx) => {
   };
   const quote = await quoteAndCache(params);
   ctx.body = {
+    params,
     quote
   };
 });
