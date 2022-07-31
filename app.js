@@ -49,10 +49,10 @@ subscriptions.newBlockHeaders = eth.subscribe('newBlockHeaders')
 
 router.get('/quote', async (ctx) => {
   const fromToken = ctx.query.fromToken;
-  const fromDecimals = ctx.query.fromDecimals || 18;
+  const fromDecimals = parseInt(ctx.query.fromDecimals || 18);
   const toToken = ctx.query.toToken;
-  const toDecimals = ctx.query.toDecimals || 18;
-  const amount = ctx.query.amount;
+  const toDecimals = parseInt(ctx.query.toDecimals || 18);
+  const amount = parseFloat(ctx.query.amount);
   const params = {
     from: {
       contract: fromToken,
