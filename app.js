@@ -66,14 +66,19 @@ provider.on('connect', () => {
 
 
 function getCacheKey(params) {
-  return `${params.from}/${params.to}/${params.amount}`;
+  return `${params.from.contract}/${params.to.contract}/${params.amount}`;
 }
 
 async function quoteAndCache(params) {
   const key = getCacheKey(params);
   const quote = await quoter.quote(params);
-  console.log('params', params.from, params.to);
-  console.log('quote', quote.from, quote.to);
+  if (!quote.from || !quote.to) {
+    console.log('quote', quote);
+  }
+  if (quote.from !== params.from.contract || quote.to !== params.to.contract) {
+    console.log('params', params.from.contract, params.to.contract);
+    console.log('quote', quote.from, quote.to);
+  }
   const cached = Cached[key];
   if (!quote.blockNumber) {
     quote.blockNumber = Block.number;
