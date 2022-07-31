@@ -90,6 +90,7 @@ async function quoteAndCache(params) {
 }
 
 io.on('connection', socket => {
+  console.log('client live');
   socket.on('quote', async (params, cb) => {
     try {
       let cachedResult;
