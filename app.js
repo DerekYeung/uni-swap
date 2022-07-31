@@ -72,8 +72,8 @@ function getCacheKey(params) {
 async function quoteAndCache(params) {
   const key = getCacheKey(params);
   const quote = await quoter.quote(params);
-  console.log(params.from, params.to);
-  console.log(quote.from, quote.to);
+  console.log('params', params.from, params.to);
+  console.log('quote', quote.from, quote.to);
   const cached = Cached[key];
   if (!quote.blockNumber) {
     quote.blockNumber = Block.number;
