@@ -84,7 +84,7 @@ router.get('/v2/pool', async (ctx) => {
   const { token0, token1 } = ctx.query;
   const pool = await getV2Pool(token0, token1);
   ctx.body = {
-    address: pool.contract.address,
+    address: pool.address,
     pool: pool.info
   };
 });
@@ -213,7 +213,10 @@ io.on('connection', socket => {
   socket.on('get-v2pool', async (params, cb) => {
     try {
       const pool = await getV2Pool(params.token0, params.token1);
-      cb && cb(pool.info);
+      cb && cb({
+        address: pool.address,
+        ...pool.info
+      });
     } catch (e) {
       cb && cb({
         error: 1,
