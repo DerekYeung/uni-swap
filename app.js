@@ -7,13 +7,19 @@ const server = require('http').Server(app.callback());
 const io = require('socket.io')(server);
 const config = require('./config');
 const Quoter = require('./quoter');
-const { eth, provider } = require('./web3');
+const { eth, provider, getContract, updatePoolInfo } = require('./web3');
 const NodeCache = require('node-cache');
+const { ethers } = require('ethers');
 const quoter = new Quoter();
 const router = new Router();
 const Cache = new NodeCache({
   stdTTL: 60
-})
+});
+
+let UNIV2_ROUTER = null;
+let UNIV2_FACTORY = null;
+
+const V2Pools = {};
 
 quoter.init();
 
@@ -24,7 +30,7 @@ const users = {};
 let Block = null;
 const Cached = {};
 
-function onNewBlock(block) {
+async function onNewBlock(block) {
   console.log('on new block', block.number);
   Block = block;
   for (const k in Cached) {
@@ -32,6 +38,9 @@ function onNewBlock(block) {
     if (number < block.number) {
       delete Cached[k];
     }
+  }
+  for (const k in V2Pools) {
+    await updatePoolInfo(V2Pools[k], block.number);
   }
 }
 
@@ -68,6 +77,24 @@ router.get('/quote', async (ctx) => {
   ctx.body = {
     params,
     quote
+  };
+});
+
+router.get('/v2/pool', async (ctx) => {
+  const { token0, token1 } = ctx.query;
+  const pool = await getV2Pool(token0, token1);
+  ctx.body = {
+    address: pool.contract.address,
+    pool: pool.info
+  };
+});
+
+router.get('/v2pools', async (ctx) => {
+  ctx.body = {
+    blockNumber: Block.number,
+    pools: Object.values(V2Pools).map(pool => {
+      return pool.info
+    })
   };
 });
 app.use(async (ctx, next) => {
@@ -118,6 +145,46 @@ async function quoteAndCache(params) {
   return quote;
 }
 
+async function getV2Pool(token0, token1) {
+  if (!token0 || !token1) {
+    throw new Error('Missing param');
+  }
+  const tokens = [
+    token0.toLowerCase(),
+    token1.toLowerCase()
+  ];
+  tokens.sort((a, b) => {
+    return a - b;
+  });
+  const key = tokens.join('_');
+  let address = null;
+  try {
+    if (V2Pools[key]) {
+      await updatePoolInfo(V2Pools[key], Block.number);
+      return V2Pools[key];
+    }
+    address = await UNIV2_FACTORY.getPair(tokens[0], tokens[1]);
+    if (address === '0x0000000000000000000000000000000000000000') {
+      return {
+        info: {
+          empty: true
+        }
+      };
+    }
+    const pair = await getContract(address, config.ABIS.UNIV2_PAIR);
+    const pool = {
+      address,
+      contract: pair
+    };
+    await updatePoolInfo(pool, Block.number);
+    V2Pools[key] = pool;
+    return pool;
+  } catch (e) {
+    console.error(`Missing data for: ${key} => ${address}`, e.message);
+    throw e;
+  }
+}
+
 io.on('connection', socket => {
   console.log('client live');
   socket.on('quote', async (params, cb) => {
@@ -143,11 +210,31 @@ io.on('connection', socket => {
       });
     }
   });
+  socket.on('get-v2pool', async (params, cb) => {
+    try {
+      const pool = await getV2Pool(params.token0, params.token1);
+      cb && cb(pool.info);
+    } catch (e) {
+      cb && cb({
+        error: 1,
+        message: e.message
+      });
+    }
+  });
 })
 
 eth.getBlock('latest').then(block => {
   onNewBlock(block);
-}).then(() => {
+}).then(async () => {
+  UNIV2_ROUTER = await getContract(config.UNIV2_ROUTER, config.ABIS.UNIV2_ROUTER);
+  UNIV2_FACTORY = await getContract(config.UNIV2_FACTORY, config.ABIS.UNIV2_FACTORY);
+  // // const FACTORY_ADDRESS = '0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f';
+  // // const WETH_ADDRESS = await UNIV2.WETH();
+  // const pair = await UNIV2_FACTORY.getPair(config.WETH_ADDRESS, config.USDT_ADDRESS);
+  // const POOL = await getContract(pair, config.ABIS.UNIV2_PAIR);
+  // const rev = await POOL.getReserves();
+  // console.log(UNIV2_FACTORY, pair, rev);
+  console.log('start');
   server.listen(config.PORT || port, () => {
     console.log(`app run at : http://127.0.0.1:${config.PORT}`);
   })
