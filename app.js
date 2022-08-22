@@ -33,6 +33,7 @@ const Cached = {};
 async function onNewBlock(block) {
   console.log('on new block', block.number);
   Block = block;
+  io.sockets.emit('block', Block);
   for (const k in Cached) {
     const number = Cached[k].blockNumber;
     if (number < block.number) {
@@ -145,6 +146,9 @@ async function quoteAndCache(params) {
   return quote;
 }
 
+const V2Queue = {
+}
+
 async function getV2Pool(token0, token1) {
   if (!token0 || !token1) {
     throw new Error('Missing param');
@@ -157,6 +161,32 @@ async function getV2Pool(token0, token1) {
     return a - b;
   });
   const key = tokens.join('_');
+  return fetchV2Pool(tokens, key);
+
+  const query = !V2Queue[key];
+  if (query) {
+    V2Queue[key] = [];
+  }
+
+  const p = new Promise((resolve) => {
+    V2Queue[key].push(resolve);
+  });
+  if (query) {
+    const pool = await fetchV2Pool(tokens, key);
+    V2Queue[key].forEach((c) => {
+      if (!pool) {
+        console.log(pool);
+      }
+      c(pool);
+    });
+    delete V2Queue[key];
+  }
+  return p;
+
+}
+
+async function fetchV2Pool(tokens, key) {
+  let pool;
   let address = null;
   try {
     if (V2Pools[key]) {
@@ -172,7 +202,7 @@ async function getV2Pool(token0, token1) {
       };
     }
     const pair = await getContract(address, config.ABIS.UNIV2_PAIR);
-    const pool = {
+    pool = {
       address,
       contract: pair
     };
@@ -181,12 +211,13 @@ async function getV2Pool(token0, token1) {
     return pool;
   } catch (e) {
     console.error(`Missing data for: ${key} => ${address}`, e.message);
-    throw e;
+    return null;
   }
 }
 
 io.on('connection', socket => {
   console.log('client live');
+  socket.emit('block', Block);
   socket.on('quote', async (params, cb) => {
     try {
       let cachedResult;
