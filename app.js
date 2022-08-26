@@ -101,8 +101,9 @@ const v2quoter = async (request = {}) => {
   const { fromTokenAddress, toTokenAddress, amount, fromAddress, destReceiver, slippage } = request;
   const pool = await getV2Pool(fromTokenAddress, toTokenAddress);
   const reserves = pool.info.reserves || {};
-  const reservesIn = fromTokenAddress === pool.info.token0 ? reserves.token0 : reserves.token1; 
-  const reservesOut = fromTokenAddress === pool.info.token0 ? reserves.token1 : reserves.token0; 
+  const isToken0 = fromTokenAddress.toUpperCase() === pool.info.token0.toUpperCase();;
+  const reservesIn = isToken0 ? reserves.token0 : reserves.token1; 
+  const reservesOut = isToken0 ? reserves.token1 : reserves.token0; 
   const amountOut = getAmountOut(amount, reservesIn, reservesOut);
   const t0 = {
     address: pool.info.token0,
@@ -112,13 +113,15 @@ const v2quoter = async (request = {}) => {
     address: pool.info.token1,
     decimals: pool.info.decimal1
   };
-  const fromToken = fromTokenAddress === pool.info.token0 ? t0 : t1;
-  const toToken = fromTokenAddress === pool.info.token0 ? t1 : t0;
+  const fromToken = isToken0 ? t0 : t1;
+  const toToken = isToken0 ? t1 : t0;
 
   const body = {
     fromToken,
     toToken,
     reserves,
+    reservesIn,
+    reservesOut,
     fromTokenAmount: amount,
     toTokenAmount: toFixedValue(amountOut),
   }
