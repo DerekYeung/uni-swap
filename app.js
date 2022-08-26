@@ -128,8 +128,12 @@ const v2quoter = async (request = {}) => {
 
   if (request.swap) {
     const amountIn = web3.utils.toHex(amount);
-    const minOut = slippage > 0 ? parseInt(amountOut * (1 - (parseFloat(slippage) / 100) )) : amountOut;
+    const minOut = slippage > 0 ? toFixedValue(parseInt(body.toTokenAmount) * (1 - (parseFloat(slippage) / 100) )) : amountOut;
     const amountOutMin = web3.utils.toHex(minOut);
+    const ex = (parseInt(body.toTokenAmount) - parseInt(minOut)) / body.toTokenAmount;
+    if (ex > 0.1) {
+      throw new Error('超过滑点');
+    }
     body.minOut = minOut;
     const timeStamp = web3.utils.toHex(Math.round(Date.now()/1000)+60*20);
     const swapTo = destReceiver || fromAddress;
