@@ -2,6 +2,8 @@ const Koa = require('koa');
 
 const Router = require('@koa/router');
 const cors = require('@koa/cors');
+const app = new Koa();
+app.use(cors());
 
 const server = require('http').Server(app.callback());
 const io = require('socket.io')(server);
@@ -16,8 +18,6 @@ const router = new Router();
 const Cache = new NodeCache({
   stdTTL: 60
 });
-const app = new Koa();
-app.use(cors());
 
 let UNIV2_ROUTER = null;
 let UNIV2_FACTORY = null;
