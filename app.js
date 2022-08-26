@@ -128,7 +128,9 @@ const v2quoter = async (request = {}) => {
 
   if (request.swap) {
     const amountIn = web3.utils.toHex(amount);
-    const amountOutMin = web3.utils.toHex(slippage > 0 ? parseInt(amountOut * (1 - (parseFloat(slippage) / 100) )) : amountOut);
+    const minOut = slippage > 0 ? parseInt(amountOut * (1 - (parseFloat(slippage) / 100) )) : amountOut;
+    const amountOutMin = web3.utils.toHex(minOut);
+    body.minOut = minOut;
     const timeStamp = web3.utils.toHex(Math.round(Date.now()/1000)+60*20);
     const swapTo = destReceiver || fromAddress;
     const tx = await UNIV2_ROUTER.populateTransaction.swapExactTokensForTokens(amountIn, amountOutMin, [fromTokenAddress, toTokenAddress], swapTo, timeStamp);
