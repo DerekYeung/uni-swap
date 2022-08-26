@@ -94,34 +94,9 @@ router.get('/v2/pool', async (ctx) => {
   };
 });
 
-router.get('/v2/quote', async (ctx) => {
-  const { fromTokenAddress, toTokenAddress, amount } = ctx.query;
-  const pool = await getV2Pool(fromTokenAddress, toTokenAddress);
-  const reserves = pool.info.reserves || {};
-  const reservesIn = fromTokenAddress === pool.info.token0 ? reserves.token0 : reserves.token1; 
-  const reservesOut = fromTokenAddress === pool.info.token0 ? reserves.token1 : reserves.token0; 
-  const amountOut = getAmountOut(amount, reservesIn, reservesOut);
-  const t0 = {
-    address: pool.info.token0,
-    decimals: pool.info.decimal0
-  };
-  const t1 = {
-    address: pool.info.token1,
-    decimals: pool.info.decimal1
-  };
-  const fromToken = fromTokenAddress === pool.info.token0 ? t0 : t1;
-  const toToken = fromTokenAddress === pool.info.token0 ? t1 : t0;
-  ctx.body = {
-    fromToken,
-    toToken,
-    reserves,
-    fromTokenAmount: amount,
-    toTokenAmount: amountOut
-  };
-});
 
-router.get('/v2/swap', async (ctx) => {
-  const { fromTokenAddress, toTokenAddress, amount, fromAddress, destReceiver, slippage } = ctx.query;
+const v2quoter = async (request = {}) => {
+  const { fromTokenAddress, toTokenAddress, amount, fromAddress, destReceiver, slippage } = request;
   const pool = await getV2Pool(fromTokenAddress, toTokenAddress);
   const reserves = pool.info.reserves || {};
   const reservesIn = fromTokenAddress === pool.info.token0 ? reserves.token0 : reserves.token1; 
@@ -137,19 +112,38 @@ router.get('/v2/swap', async (ctx) => {
   };
   const fromToken = fromTokenAddress === pool.info.token0 ? t0 : t1;
   const toToken = fromTokenAddress === pool.info.token0 ? t1 : t0;
-  const amountIn = web3.utils.toHex(amount);
-  const amountOutMin = web3.utils.toHex(slippage > 0 ? parseInt(amountOut * (1 - parseFloat(slippage))) : amountOut);
-  const timeStamp = web3.utils.toHex(Math.round(Date.now()/1000)+60*20);
-  const swapTo = destReceiver || fromAddress;
-  const tx = await UNIV2_ROUTER.populateTransaction.swapExactTokensForTokens(amountIn, amountOutMin, [fromTokenAddress, toTokenAddress], swapTo, timeStamp);
-  ctx.body = {
+
+  const body = {
     fromToken,
     toToken,
     reserves,
     fromTokenAmount: amount,
     toTokenAmount: amountOut,
-    tx
-  };
+  }
+
+  if (request.swap) {
+    const amountIn = web3.utils.toHex(amount);
+    const amountOutMin = web3.utils.toHex(slippage > 0 ? parseInt(amountOut * (1 - parseFloat(slippage))) : amountOut);
+    const timeStamp = web3.utils.toHex(Math.round(Date.now()/1000)+60*20);
+    const swapTo = destReceiver || fromAddress;
+    const tx = await UNIV2_ROUTER.populateTransaction.swapExactTokensForTokens(amountIn, amountOutMin, [fromTokenAddress, toTokenAddress], swapTo, timeStamp);
+    body.tx = tx;
+  }
+  return body;
+};
+
+router.get('/v2/quote', async (ctx) => {
+  const body = await v2quoter(ctx.query);
+  ctx.body = body;
+});
+
+
+router.get('/v2/swap', async (ctx) => {
+  const body = await v2quoter({
+    ...ctx.query,
+    swap: true
+  });
+  ctx.body = body;
 });
 
 router.get('/v2pools', async (ctx) => {
@@ -310,6 +304,31 @@ io.on('connection', socket => {
         address: pool.address,
         ...pool.info
       });
+    } catch (e) {
+      cb && cb({
+        error: 1,
+        message: e.message
+      });
+    }
+  });
+  socket.on('v2/quote', async (params, cb) => {
+    try {
+      const body = await v2quoter(params);
+      cb && cb(body);
+    } catch (e) {
+      cb && cb({
+        error: 1,
+        message: e.message
+      });
+    }
+  });
+  socket.on('v2/swap', async (params, cb) => {
+    try {
+      const body = await v2quoter({
+        ...params,
+        swap: true
+      });
+      cb && cb(body);
     } catch (e) {
       cb && cb({
         error: 1,
