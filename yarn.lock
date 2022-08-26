@@ -1118,6 +1118,13 @@
     "@ethersproject/properties" "^5.6.0"
     "@ethersproject/strings" "^5.6.1"
 
+"@koa/cors@^3.4.1":
+  version "3.4.1"
+  resolved "https://registry.npmmirror.com/@koa/cors/-/cors-3.4.1.tgz#ddd5c6ff07a1e60831e1281411a3b9fdb95a5b26"
+  integrity sha512-/sG9NlpGZ/aBpnRamIlGs+wX+C/IJ5DodNK7iPQIVCG4eUQdGeshGhWQ6JCi7tpnD9sCtFXcS04iTimuaJfh4Q==
+  dependencies:
+    vary "^1.1.2"
+
 "@koa/router@^12.0.0":
   version "12.0.0"
   resolved "https://registry.npmmirror.com/@koa/router/-/router-12.0.0.tgz#2ae7937093fd392761c0e5833c368379d4a35737"
