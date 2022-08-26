@@ -104,6 +104,51 @@ function getAmountOut(input = 0, reserveIn, reserveOut) {
   return Math.floor(amountOut.toNumber());
 }
 
+function fromTokenUnit(value, decimals = 0, toFixed = false) {
+  if (!value || value <= 0) {
+    return value;
+  }
+  let amount = new Decimal(value);
+  if (decimals > 0) {
+    for (let i = 0; i < decimals; i++) {
+      amount = amount.dividedBy(10);
+    }
+  }
+  if (toFixed) {
+    return toFixedValue(amount.toNumber(), decimals);
+  }
+  return amount.toNumber();
+}
+
+function toTokenUnit(amount, decimals = 0, cut = false) {
+  let value = new Decimal(amount);
+  if (value.isNegative() || value.isZero() || !decimals) {
+    return value.toNumber();
+  }
+
+  if (decimals > 0) {
+    for (let i = 0; i < decimals; i++) {
+      value = value.times(10);
+    }
+    if (!value.isInteger()) {
+      if (cut) {
+        return Math.floor(value.toNumber());
+      }
+      console.log(value.toNumber(), decimals);
+      throw new Error('Unsupported decimals');
+    }
+  }
+  return value.toNumber();
+}
+
+function toFixedValue(number, decimals = 0) {
+  if (!number || isNaN(number)) {
+    return number;
+  }
+  return new Decimal(new Decimal(number).toFixed(decimals)).toFixed();
+}
+
+
 module.exports = {
   provider,
   ethersProvider,
@@ -113,5 +158,8 @@ module.exports = {
   getWeb3Contract,
   updatePoolInfo,
   getAmountIn,
-  getAmountOut
+  getAmountOut,
+  fromTokenUnit,
+  toTokenUnit,
+  toFixedValue
 };

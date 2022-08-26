@@ -10,7 +10,7 @@ const io = require('socket.io')(server);
 const config = require('./config');
 const Quoter = require('./quoter');
 const web3 = require('web3');
-const { eth, provider, getContract, updatePoolInfo, getAmountOut } = require('./web3');
+const { eth, provider, getContract, updatePoolInfo, getAmountOut, toTokenUnit, toFixedValue } = require('./web3');
 const NodeCache = require('node-cache');
 const { ethers } = require('ethers');
 const quoter = new Quoter();
@@ -120,7 +120,7 @@ const v2quoter = async (request = {}) => {
     toToken,
     reserves,
     fromTokenAmount: amount,
-    toTokenAmount: amountOut,
+    toTokenAmount: toFixedValue(amountOut),
   }
 
   if (request.swap) {
