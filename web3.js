@@ -4,6 +4,7 @@
 const Web3 = require('web3');
 const Web3WsProvider = require('web3-providers-ws')
 const config = require('./config');
+const Decimal = require('decimal.js');
 
 const { ethers, Contract } = require('ethers');
 
@@ -39,11 +40,17 @@ function getContract(address, abi, signerOrProvider = ethersProvider) {
   return new Contract(address, abi, signerOrProvider);
 }
 
+function getWeb3Contract() {
+  return new Contract(address, abi, signerOrProvider);
+}
+
 async function updatePoolInfo(pool, blockNumber) {
   const contract = pool.contract;
   const info = pool.info || {};
   const token0 = info.token0;
   const token1 = info.token1;
+  const decimal0 = info.decimal0;
+  const decimal1 = info.decimal1;
   if (!blockNumber) {
     blockNumber = (await eth.getBlock('latest')).number;
   }
@@ -54,6 +61,16 @@ async function updatePoolInfo(pool, blockNumber) {
     ]);
     info.token0 = a;
     info.token1 = b;
+  }
+  if (!decimal0 || !decimal1) {
+    const t0 = getContract(info.token0, config.ABIS.ERC20);
+    const t1 = getContract(info.token1, config.ABIS.ERC20);
+    const [ a, b ] = await Promise.all([
+      t0.decimals(),
+      t1.decimals()
+    ]);
+    info.decimal0 = a;
+    info.decimal1 = b;
   }
   if (!info.getReserves || blockNumber > info.blockNumber) {
     const reserves = await contract.getReserves();
@@ -67,11 +84,34 @@ async function updatePoolInfo(pool, blockNumber) {
   return pool;
 }
 
+function getAmountIn(input = 0, reserveIn, reserveOut) {
+  const rate = new Decimal(1000).minus(new Decimal(0.003).times(1000));
+  const numerator = new Decimal(reserveIn).times(input).times(1000);
+  const denominator = new Decimal(reserveOut).minus(input).times(rate);
+  if (denominator <= 0) {
+    return 0;
+  }
+  const amountIn = Math.floor(numerator.dividedBy(denominator).toNumber()) + 1;
+  return amountIn;
+}
+
+function getAmountOut(input = 0, reserveIn, reserveOut) {
+  const rate = new Decimal(1000).minus(new Decimal(0.003).times(1000));
+  const inputWithFee = new Decimal(input).times(rate);
+  const numerator = inputWithFee.times(reserveOut);
+  const denominator = new Decimal(reserveIn).times(1000).plus(inputWithFee);
+  const amountOut = numerator.dividedBy(denominator);
+  return Math.floor(amountOut.toNumber());
+}
+
 module.exports = {
   provider,
   ethersProvider,
   web3,
   eth,
   getContract,
-  updatePoolInfo
+  getWeb3Contract,
+  updatePoolInfo,
+  getAmountIn,
+  getAmountOut
 };

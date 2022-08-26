@@ -12,6 +12,7 @@ const ABIS = {
   UNIV2_ROUTER: require('./abis/univ2_router.json'),
   UNIV2_FACTORY: require('./abis/univ2_factory.json'),
   UNIV2_PAIR: require('./abis/univ2_pair.json'),
+  ERC20: require('./abis/erc20.json'),
 };
 const config = {
   RPC,

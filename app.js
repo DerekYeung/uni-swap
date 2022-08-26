@@ -7,7 +7,8 @@ const server = require('http').Server(app.callback());
 const io = require('socket.io')(server);
 const config = require('./config');
 const Quoter = require('./quoter');
-const { eth, provider, getContract, updatePoolInfo } = require('./web3');
+const web3 = require('web3');
+const { eth, provider, getContract, updatePoolInfo, getAmountOut } = require('./web3');
 const NodeCache = require('node-cache');
 const { ethers } = require('ethers');
 const quoter = new Quoter();
@@ -20,6 +21,7 @@ let UNIV2_ROUTER = null;
 let UNIV2_FACTORY = null;
 
 const V2Pools = {};
+const Tokens = {};
 
 quoter.init();
 
@@ -81,12 +83,72 @@ router.get('/quote', async (ctx) => {
   };
 });
 
+
 router.get('/v2/pool', async (ctx) => {
   const { token0, token1 } = ctx.query;
   const pool = await getV2Pool(token0, token1);
+
   ctx.body = {
     address: pool.address,
     pool: pool.info
+  };
+});
+
+router.get('/v2/quote', async (ctx) => {
+  const { fromTokenAddress, toTokenAddress, amount } = ctx.query;
+  const pool = await getV2Pool(fromTokenAddress, toTokenAddress);
+  const reserves = pool.info.reserves || {};
+  const reservesIn = fromTokenAddress === pool.info.token0 ? reserves.token0 : reserves.token1; 
+  const reservesOut = fromTokenAddress === pool.info.token0 ? reserves.token1 : reserves.token0; 
+  const amountOut = getAmountOut(amount, reservesIn, reservesOut);
+  const t0 = {
+    address: pool.info.token0,
+    decimals: pool.info.decimal0
+  };
+  const t1 = {
+    address: pool.info.token1,
+    decimals: pool.info.decimal1
+  };
+  const fromToken = fromTokenAddress === pool.info.token0 ? t0 : t1;
+  const toToken = fromTokenAddress === pool.info.token0 ? t1 : t0;
+  ctx.body = {
+    fromToken,
+    toToken,
+    reserves,
+    fromTokenAmount: amount,
+    toTokenAmount: amountOut
+  };
+});
+
+router.get('/v2/swap', async (ctx) => {
+  const { fromTokenAddress, toTokenAddress, amount, fromAddress, destReceiver, slippage } = ctx.query;
+  const pool = await getV2Pool(fromTokenAddress, toTokenAddress);
+  const reserves = pool.info.reserves || {};
+  const reservesIn = fromTokenAddress === pool.info.token0 ? reserves.token0 : reserves.token1; 
+  const reservesOut = fromTokenAddress === pool.info.token0 ? reserves.token1 : reserves.token0; 
+  const amountOut = getAmountOut(amount, reservesIn, reservesOut);
+  const t0 = {
+    address: pool.info.token0,
+    decimals: pool.info.decimal0
+  };
+  const t1 = {
+    address: pool.info.token1,
+    decimals: pool.info.decimal1
+  };
+  const fromToken = fromTokenAddress === pool.info.token0 ? t0 : t1;
+  const toToken = fromTokenAddress === pool.info.token0 ? t1 : t0;
+  const amountIn = web3.utils.toHex(amount);
+  const amountOutMin = web3.utils.toHex(slippage > 0 ? parseInt(amountOut * (1 - parseFloat(slippage))) : amountOut);
+  const timeStamp = web3.utils.toHex(Math.round(Date.now()/1000)+60*20);
+  const swapTo = destReceiver || fromAddress;
+  const tx = await UNIV2_ROUTER.populateTransaction.swapExactTokensForTokens(amountIn, amountOutMin, [fromTokenAddress, toTokenAddress], swapTo, timeStamp);
+  ctx.body = {
+    fromToken,
+    toToken,
+    reserves,
+    fromTokenAmount: amount,
+    toTokenAmount: amountOut,
+    tx
   };
 });
 
