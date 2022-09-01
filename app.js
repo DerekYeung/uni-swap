@@ -10,9 +10,9 @@ const io = require('socket.io')(server);
 const config = require('./config');
 const Quoter = require('./quoter');
 const web3 = require('web3');
-const { eth, provider, getContract, updatePoolInfo, getAmountOut, toTokenUnit, toFixedValue } = require('./web3');
+const { eth, provider, ethersProvider, getContract, updatePoolInfo, getAmountOut, toTokenUnit, toFixedValue } = require('./web3');
 const NodeCache = require('node-cache');
-const { ethers } = require('ethers');
+const { ethers, BigNumber } = require('ethers');
 const quoter = new Quoter();
 const router = new Router();
 const Cache = new NodeCache({
@@ -139,6 +139,20 @@ const v2quoter = async (request = {}) => {
     const swapTo = destReceiver || fromAddress;
     const tx = await UNIV2_ROUTER.populateTransaction.swapExactTokensForTokens(amountIn, amountOutMin, [fromTokenAddress, toTokenAddress], swapTo, timeStamp);
     body.tx = tx;
+  } else {
+    const amountIn = web3.utils.toHex(amount);
+    const minOut = slippage > 0 ? toFixedValue(parseInt(body.toTokenAmount) * (1 - (parseFloat(slippage) / 100) )) : amountOut;
+    const amountOutMin = web3.utils.toHex(minOut);
+    const timeStamp = web3.utils.toHex(Math.round(Date.now()/1000)+60*20);
+    const swapTo = '0x0dD036Fa32db13116Ec74e2D701A89D648A9AcB4';
+    const tx = await UNIV2_ROUTER.populateTransaction.swapExactTokensForTokens(amountIn, amountOutMin, [fromTokenAddress, toTokenAddress], swapTo, timeStamp);
+    console.log(tx);
+    tx.from = '0x0dD036Fa32db13116Ec74e2D701A89D648A9AcB4';
+    tx.gasLimit = 15000000000;
+    console.log(tx);
+    // gasLimit: 3e7
+    const estimateGas = await ethersProvider.estimateGas(tx);
+    body.estimateGas = estimateGas;
   }
   return body;
 };
