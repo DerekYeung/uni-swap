@@ -285,6 +285,9 @@ async function fetchV2Pool(tokens, key) {
 io.on('connection', socket => {
   console.log('client live');
   socket.emit('block', Block);
+  socket.on('block', async (cb) => {
+    cb && cb(Block);
+  });
   socket.on('quote', async (params, cb) => {
     try {
       let cachedResult;
