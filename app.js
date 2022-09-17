@@ -54,7 +54,7 @@ async function onNewBlock(block) {
       delete Cached[k];
     }
   }
-  console.time('updateV2Pool');
+  console.time(`updateV2Pool-${block.number}`);
   const v2pools = Object.values(V2Pools);
   await Promise.all(v2pools.map(node => {
     return updatePoolInfo(node, block.number);
@@ -65,16 +65,14 @@ async function onNewBlock(block) {
   //   } catch(e) {
   //   }
   // }
-  console.timeEnd('updateV2Pool');
-  console.time('updateBalance');
-  for (const k in Balances) {
-    try {
-      const [origin, address] = k.split('/');
-      await fetchBalance(origin, address);
-    } catch (e) {
-    }
-  }
-  console.timeEnd('updateBalance');
+  console.timeEnd(`updateV2Pool-${block.number}`);
+  console.time(`updateBalance-${block.number}`);
+  const balances = Object.keys(Balances);
+  await Promise.all(balances.map(k => {
+    const [origin, address] = k.split('/');
+    return fetchBalance(origin, address);
+  }));
+  console.timeEnd(`updateBalance-${block.number}`);
 }
 
 const subscriptions = {}
