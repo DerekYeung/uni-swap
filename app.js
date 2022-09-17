@@ -59,6 +59,7 @@ async function onNewBlock(block) {
   await Promise.all(v2pools.map(node => {
     return updatePoolInfo(node, block.number);
   }));
+  console.log(`update ${v2pools.length} v2pools`);
   // for (const k in V2Pools) {
   //   try {
   //     await updatePoolInfo(V2Pools[k], block.number);
@@ -72,6 +73,7 @@ async function onNewBlock(block) {
     const [origin, address] = k.split('/');
     return fetchBalance(origin, address);
   }));
+  console.log(`update ${balances.length} v2pools`);
   console.timeEnd(`updateBalance-${block.number}`);
 }
 
