@@ -420,7 +420,7 @@ io.on('connection', socket => {
 });
 
 
-async function waitUntilSynced(params) {
+async function waitUntilSynced() {
   NODE_SYNCING = await eth.isSyncing();
   if (NODE_SYNCING) {
     console.log('Node still syncing');
