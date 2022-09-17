@@ -55,12 +55,16 @@ async function onNewBlock(block) {
     }
   }
   console.time('updateV2Pool');
-  for (const k in V2Pools) {
-    try {
-      await updatePoolInfo(V2Pools[k], block.number);
-    } catch(e) {
-    }
-  }
+  const v2pools = Object.values(V2Pools);
+  await Promise.all(v2pools.map(node => {
+    return updatePoolInfo(node, block.number);
+  }));
+  // for (const k in V2Pools) {
+  //   try {
+  //     await updatePoolInfo(V2Pools[k], block.number);
+  //   } catch(e) {
+  //   }
+  // }
   console.timeEnd('updateV2Pool');
   console.time('updateBalance');
   for (const k in Balances) {
