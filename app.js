@@ -141,8 +141,8 @@ async function fetchBalance(origin, address, hard) {
   };
   try {
     const contract = getContract(origin, config.ABIS.ERC20);
-    const [balance, decimals] = await Promise.all([contract.balanceOf(address), contract.decimals()]);
-    response.balance = ethers.utils.formatUnits(balance, decimals);
+    const balance = await contract.balanceOf(address);
+    response.balance = balance.toString();
     Balances[key] = response;
   } catch (e) {
     console.error('Failed to fetchBalance', origin, address, e.message);
