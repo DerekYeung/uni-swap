@@ -30,9 +30,13 @@ let NODE_SYNCING = false;
 let UNIV2_ROUTER = null;
 let UNIV2_FACTORY = null;
 
-const V2Pools = {};
+const STATES = {
+  V2POOLS: {},
+  BALANCES: {}
+};
+
+// const V2POOLS = {};
 const Tokens = {};
-const Balances = {};
 const V2Queue = {}
 
 quoter.init();
@@ -55,9 +59,12 @@ async function onNewBlock(block) {
     }
   }
   console.time(`updateV2Pool-${block.number}`);
-  const v2pools = Object.values(V2Pools);
-  await Promise.all(v2pools.map(node => {
-    return updatePoolInfo(node, block.number);
+  const v2pools = Object.keys(STATES.V2POOLS);
+  await Promise.all(v2pools.map(key => {
+    const node = STATES.V2POOLS[key];
+    return updatePoolInfo(node, block.number).then(pool => {
+      STATES.V2POOLS[key] = pool;
+    });
   }));
   console.log(`update ${v2pools.length} v2pools`);
   // for (const k in V2Pools) {
@@ -68,7 +75,7 @@ async function onNewBlock(block) {
   // }
   console.timeEnd(`updateV2Pool-${block.number}`);
   console.time(`updateBalance-${block.number}`);
-  const balances = Object.keys(Balances);
+  const balances = Object.keys(STATES.BALANCES);
   await Promise.all(balances.map(k => {
     const [origin, address] = k.split('/');
     return fetchBalance(origin, address);
@@ -131,7 +138,7 @@ async function fetchBalance(origin, address, hard) {
     throw new Error('Missing params');
   }
   const key = `${origin}/${address}`;
-  const cached = Balances[key];
+  const cached = STATES.BALANCES[key];
   if (cached) {
     if (!hard || cached.blockNumber >= Block.number) {
       return cached;
@@ -145,7 +152,7 @@ async function fetchBalance(origin, address, hard) {
     const contract = getContract(origin, config.ABIS.ERC20);
     const balance = await contract.balanceOf(address);
     response.balance = balance.toString();
-    Balances[key] = response;
+    STATES.BALANCES[key] = response;
   } catch (e) {
     console.error('Failed to fetchBalance', origin, address, e.message);
     response.balance = 0;
@@ -338,9 +345,9 @@ async function fetchV2Pool(tokens, key) {
   let pool;
   let address = null;
   try {
-    if (V2Pools[key]) {
-      await updatePoolInfo(V2Pools[key], Block.number);
-      return V2Pools[key];
+    if (STATES.V2POOLS[key]) {
+      await updatePoolInfo(STATES.V2POOLS[key], Block.number);
+      return STATES.V2POOLS[key];
     }
     address = await UNIV2_FACTORY.getPair(tokens[0], tokens[1]);
     if (address === '0x0000000000000000000000000000000000000000') {
@@ -356,7 +363,7 @@ async function fetchV2Pool(tokens, key) {
       contract: pair
     };
     await updatePoolInfo(pool, Block.number);
-    V2Pools[key] = pool;
+    STATES.V2POOLS[key] = pool;
     return pool;
   } catch (e) {
     console.error(`Missing data for: ${key} => ${address}`, e.message);
