@@ -80,7 +80,7 @@ async function onNewBlock(block) {
     const [origin, address] = k.split('/');
     return fetchBalance(origin, address);
   }));
-  console.log(`update ${balances.length} v2pools`);
+  console.log(`update ${balances.length} balances`);
   console.timeEnd(`updateBalance-${block.number}`);
 }
 
