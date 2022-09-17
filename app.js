@@ -84,6 +84,19 @@ subscriptions.newBlockHeaders = eth.subscribe('newBlockHeaders')
 .on('error', e => {
   console.error(`subscribe error: ${e.message}`);
 });
+subscriptions.syncing = eth.subscribe('syncing')
+.on('connected', subscriptionId => {
+  console.log(`subscribed syncing => ${subscriptionId}`);
+})
+.on('data', syncing => {
+  NODE_SYNCING = syncing;
+  if (NODE_SYNCING) {
+    console.log('[warn] NODE_SYNCING');
+  }
+})
+.on('error', e => {
+  console.error(`subscribe error: ${e.message}`);
+});
 
 router.get('/quote', async (ctx) => {
   const fromToken = ctx.query.fromToken;
@@ -446,12 +459,6 @@ waitUntilSynced().then(() => {
     // const rev = await POOL.getReserves();
     // console.log(UNIV2_FACTORY, pair, rev);
     console.log('start');
-    eth.subscribe('syncing', syncing => {
-      NODE_SYNCING = syncing;
-      if (NODE_SYNCING) {
-        console.log('[warn] NODE_SYNCING');
-      }
-    });
     server.listen(config.PORT || port, () => {
       console.log(`app run at : http://127.0.0.1:${config.PORT}`);
     })
