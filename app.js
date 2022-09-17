@@ -354,8 +354,12 @@ async function fetchV2Pool(tokens, key) {
 io.on('connection', socket => {
   console.log('client live');
   socket.emit('block', Block);
+  socket.emit('syncing', NODE_SYNCING);
   socket.on('block', async (cb) => {
     cb && cb(Block);
+  });
+  socket.on('syncing', async (cb) => {
+    cb && cb(NODE_SYNCING);
   });
   socket.on('quote', async (params, cb) => {
     try {
