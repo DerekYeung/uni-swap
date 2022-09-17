@@ -9,8 +9,16 @@ const server = require('http').Server(app.callback());
 const io = require('socket.io')(server);
 const config = require('./config');
 const Quoter = require('./quoter');
-const web3 = require('web3');
-const { eth, provider, getContract, updatePoolInfo, getAmountOut, toTokenUnit, toFixedValue } = require('./web3');
+const Web3 = require('web3');
+const {
+  eth,
+  provider,
+  getContract,
+  updatePoolInfo,
+  getAmountOut,
+  toTokenUnit,
+  toFixedValue
+} = require('./web3');
 const NodeCache = require('node-cache');
 const { ethers } = require('ethers');
 const quoter = new Quoter();
@@ -18,12 +26,14 @@ const router = new Router();
 const Cache = new NodeCache({
   stdTTL: 60
 });
-
+let NODE_SYNCING = false;
 let UNIV2_ROUTER = null;
 let UNIV2_FACTORY = null;
 
 const V2Pools = {};
 const Tokens = {};
+const Balances = {};
+const V2Queue = {}
 
 quoter.init();
 
@@ -44,9 +54,23 @@ async function onNewBlock(block) {
       delete Cached[k];
     }
   }
+  console.time('updateV2Pool');
   for (const k in V2Pools) {
-    await updatePoolInfo(V2Pools[k], block.number);
+    try {
+      await updatePoolInfo(V2Pools[k], block.number);
+    } catch(e) {
+    }
   }
+  console.timeEnd('updateV2Pool');
+  console.time('updateBalance');
+  for (const k in Balances) {
+    try {
+      const [origin, address] = k.split('/');
+      await fetchBalance(origin, address);
+    } catch (e) {
+    }
+  }
+  console.timeEnd('updateBalance');
 }
 
 const subscriptions = {}
@@ -85,6 +109,33 @@ router.get('/quote', async (ctx) => {
   };
 });
 
+async function fetchBalance(origin, address, hard) {
+  if (!origin || !address) {
+    throw new Error('Missing params');
+  }
+  const key = `${origin}/${address}`;
+  const cached = Balances[key];
+  if (cached) {
+    if (!hard || cached.blockNumber >= Block.number) {
+      return cached;
+    }
+  }
+  const response = {
+    balance: 0,
+    blockNumber: Block.number
+  };
+  try {
+    const contract = getContract(origin, config.ABIS.ERC20);
+    const [balance, decimals] = await Promise.all([contract.balanceOf(address), contract.decimals()]);
+    response.balance = ethers.utils.formatUnits(balance, decimals);
+    Cached[key] = response;
+  } catch (e) {
+    console.error('Failed to fetchBalance', origin, address, e.message);
+    response.balance = 0;
+  }
+  return response;
+}
+
 
 router.get('/v2/pool', async (ctx) => {
   const { token0, token1 } = ctx.query;
@@ -96,8 +147,16 @@ router.get('/v2/pool', async (ctx) => {
   };
 });
 
+router.get('/balance', async (ctx) => {
+  const { origin, address } = ctx.query;
+  const response = await fetchBalance(origin, address);
+  ctx.body = response;
+});
 
 const v2quoter = async (request = {}) => {
+  if (NODE_SYNCING) {
+    throw new Error('NODE_SYNCING');
+  }
   const { fromTokenAddress, toTokenAddress, amount, fromAddress, destReceiver, slippage } = request;
   const pool = await getV2Pool(fromTokenAddress, toTokenAddress);
   const reserves = pool.info.reserves || {};
@@ -127,15 +186,15 @@ const v2quoter = async (request = {}) => {
   }
 
   if (request.swap) {
-    const amountIn = web3.utils.toHex(amount);
+    const amountIn = Web3.utils.toHex(amount);
     const minOut = slippage > 0 ? toFixedValue(parseInt(body.toTokenAmount) * (1 - (parseFloat(slippage) / 100) )) : amountOut;
-    const amountOutMin = web3.utils.toHex(minOut);
+    const amountOutMin = Web3.utils.toHex(minOut);
     const ex = (parseInt(body.toTokenAmount) - parseInt(minOut)) / body.toTokenAmount;
     if (ex > 0.1) {
       throw new Error('超过滑点');
     }
     body.minOut = minOut;
-    const timeStamp = web3.utils.toHex(Math.round(Date.now()/1000)+60*20);
+    const timeStamp = Web3.utils.toHex(Math.round(Date.now() / 1000) + 60 * 20);
     const swapTo = destReceiver || fromAddress;
     const tx = await UNIV2_ROUTER.populateTransaction.swapExactTokensForTokens(amountIn, amountOutMin, [fromTokenAddress, toTokenAddress], swapTo, timeStamp);
     body.tx = tx;
@@ -211,9 +270,6 @@ async function quoteAndCache(params) {
     Cached[key] = quote;
   }
   return quote;
-}
-
-const V2Queue = {
 }
 
 async function getV2Pool(token0, token1) {
@@ -350,21 +406,54 @@ io.on('connection', socket => {
       });
     }
   });
-})
+  socket.on('balance', async (params, cb) => {
+    try {
+      const body = await fetchBalance(params.origin, params.address, !!params.hard);
+      cb && cb(body);
+    } catch (e) {
+      cb && cb({
+        error: 1,
+        message: e.message
+      });
+    }
+  });
+});
 
-eth.getBlock('latest').then(block => {
-  onNewBlock(block);
-}).then(async () => {
-  UNIV2_ROUTER = await getContract(config.UNIV2_ROUTER, config.ABIS.UNIV2_ROUTER);
-  UNIV2_FACTORY = await getContract(config.UNIV2_FACTORY, config.ABIS.UNIV2_FACTORY);
-  // // const FACTORY_ADDRESS = '0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f';
-  // // const WETH_ADDRESS = await UNIV2.WETH();
-  // const pair = await UNIV2_FACTORY.getPair(config.WETH_ADDRESS, config.USDT_ADDRESS);
-  // const POOL = await getContract(pair, config.ABIS.UNIV2_PAIR);
-  // const rev = await POOL.getReserves();
-  // console.log(UNIV2_FACTORY, pair, rev);
-  console.log('start');
-  server.listen(config.PORT || port, () => {
-    console.log(`app run at : http://127.0.0.1:${config.PORT}`);
-  })
+
+async function waitUntilSynced(params) {
+  NODE_SYNCING = await eth.isSyncing();
+  if (NODE_SYNCING) {
+    console.log('Node still syncing');
+    return new Promise(resolve => {
+      setTimeout(() => {
+        resolve(waitUntilSynced());
+      }, 1000);
+    })
+  }
+  return !NODE_SYNCING;
+}
+
+waitUntilSynced().then(() => {
+  return eth.getBlock('latest').then(block => {
+    onNewBlock(block);
+  }).then(async () => {
+    UNIV2_ROUTER = await getContract(config.UNIV2_ROUTER, config.ABIS.UNIV2_ROUTER);
+    UNIV2_FACTORY = await getContract(config.UNIV2_FACTORY, config.ABIS.UNIV2_FACTORY);
+    // // const FACTORY_ADDRESS = '0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f';
+    // // const WETH_ADDRESS = await UNIV2.WETH();
+    // const pair = await UNIV2_FACTORY.getPair(config.WETH_ADDRESS, config.USDT_ADDRESS);
+    // const POOL = await getContract(pair, config.ABIS.UNIV2_PAIR);
+    // const rev = await POOL.getReserves();
+    // console.log(UNIV2_FACTORY, pair, rev);
+    console.log('start');
+    eth.subscribe('syncing', syncing => {
+      NODE_SYNCING = syncing;
+      if (NODE_SYNCING) {
+        console.log('[warn] NODE_SYNCING');
+      }
+    });
+    server.listen(config.PORT || port, () => {
+      console.log(`app run at : http://127.0.0.1:${config.PORT}`);
+    })
+  });
 });
