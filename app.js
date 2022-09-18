@@ -78,7 +78,7 @@ async function onNewBlock(block) {
   const balances = Object.keys(STATES.BALANCES);
   await Promise.all(balances.map(k => {
     const [origin, address] = k.split('/');
-    return fetchBalance(origin, address);
+    return fetchBalance(origin, address, true);
   }));
   console.log(`update ${balances.length} balances`);
   console.timeEnd(`updateBalance-${block.number}`);
