@@ -235,7 +235,7 @@ router.get('/status', async (ctx) => {
   const body = {
     block: Block,
     syncing: NODE_SYNCING,
-    v2pools: Object.keys(V2Pools).length,
+    v2pools: Object.keys(STATES.V2POOLS).length,
     balance: Object.keys(Balances).length
   };
   ctx.body = body;
