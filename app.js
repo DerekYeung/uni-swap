@@ -29,6 +29,8 @@ const Cache = new NodeCache({
 let NODE_SYNCING = false;
 let UNIV2_ROUTER = null;
 let UNIV2_FACTORY = null;
+let SUSHI_FACTORY = null;
+let SUSHI_ROUTER = null;
 
 const STATES = {
   V2POOLS: {},
@@ -63,7 +65,11 @@ async function onNewBlock(block) {
   await Promise.all(v2pools.map(key => {
     const node = STATES.V2POOLS[key];
     return updatePoolInfo(node, block.number).then(pool => {
-      STATES.V2POOLS[key] = pool;
+      if (pool) {
+        STATES.V2POOLS[key] = pool;
+      } else {
+        delete STATES.V2POOLS[key];
+      }
     });
   }));
   console.log(`update ${v2pools.length} v2pools`);
@@ -181,8 +187,12 @@ const v2quoter = async (request = {}) => {
   if (NODE_SYNCING) {
     throw new Error('NODE_SYNCING');
   }
+  const engine = request.engine || 'UNIV2';
   const { fromTokenAddress, toTokenAddress, amount, fromAddress, destReceiver, slippage } = request;
-  const pool = await getV2Pool(fromTokenAddress, toTokenAddress);
+  const pool = await getV2Pool(fromTokenAddress, toTokenAddress, engine);
+  if (!pool || pool.info.empty) {
+    return pool;
+  }
   const reserves = pool.info.reserves || {};
   const isToken0 = fromTokenAddress.toUpperCase() === pool.info.token0.toUpperCase();;
   const reservesIn = isToken0 ? reserves.token0 : reserves.token1; 
@@ -218,9 +228,10 @@ const v2quoter = async (request = {}) => {
       throw new Error('超过滑点');
     }
     body.minOut = minOut;
-    const timeStamp = Web3.utils.toHex(Math.round(Date.now() / 1000) + 60 * 20);
+    const timeStamp = Web3.utils.toHex(Math.round(Date.now() / 1000) + 60 * 30);
     const swapTo = destReceiver || fromAddress;
-    const tx = await UNIV2_ROUTER.populateTransaction.swapExactTokensForTokens(amountIn, amountOutMin, [fromTokenAddress, toTokenAddress], swapTo, timeStamp);
+    const router = engine === 'SUSHI' ? SUSHI_ROUTER : UNIV2_ROUTER;
+    const tx = await router.populateTransaction.swapExactTokensForTokens(amountIn, amountOutMin, [fromTokenAddress, toTokenAddress], swapTo, timeStamp);
     body.tx = tx;
   }
   return body;
@@ -305,7 +316,7 @@ async function quoteAndCache(params) {
   return quote;
 }
 
-async function getV2Pool(token0, token1) {
+async function getV2Pool(token0, token1, engine) {
   if (!token0 || !token1) {
     throw new Error('Missing param');
   }
@@ -316,8 +327,9 @@ async function getV2Pool(token0, token1) {
   tokens.sort((a, b) => {
     return a - b;
   });
-  const key = tokens.join('_');
-  return fetchV2Pool(tokens, key);
+  engine = engine || 'UNIV2';
+  const key = tokens.join('_') + `@${engine}`;
+  return fetchV2Pool(tokens, key, engine);
 
   const query = !V2Queue[key];
   if (query) {
@@ -341,21 +353,35 @@ async function getV2Pool(token0, token1) {
 
 }
 
-async function fetchV2Pool(tokens, key) {
+async function fetchV2Pool(tokens, key, engine) {
   let pool;
   let address = null;
   try {
     if (STATES.V2POOLS[key]) {
-      await updatePoolInfo(STATES.V2POOLS[key], Block.number);
-      return STATES.V2POOLS[key];
+      const next = STATES.V2POOLS[key].next || null;
+      if (next) {
+        if (Block.number >= next) {
+          delete STATES.V2POOLS[key];
+        } else {
+          return STATES.V2POOLS[key];
+        }
+      } else {
+        await updatePoolInfo(STATES.V2POOLS[key], Block.number);
+        return STATES.V2POOLS[key];
+      }
     }
-    address = await UNIV2_FACTORY.getPair(tokens[0], tokens[1]);
+    const factory = engine === 'SUSHI' ? SUSHI_FACTORY : UNIV2_FACTORY;
+    address = await factory.getPair(tokens[0], tokens[1]);
     if (address === '0x0000000000000000000000000000000000000000') {
-      return {
+      pool = {
         info: {
           empty: true
-        }
-      };
+        },
+        blockNumber: Block.number,
+        next: Block.number + 10,
+      }
+      STATES.V2POOLS[key] = pool;
+      return pool;
     }
     const pair = await getContract(address, config.ABIS.UNIV2_PAIR);
     pool = {
@@ -476,6 +502,8 @@ waitUntilSynced().then(() => {
   }).then(async () => {
     UNIV2_ROUTER = await getContract(config.UNIV2_ROUTER, config.ABIS.UNIV2_ROUTER);
     UNIV2_FACTORY = await getContract(config.UNIV2_FACTORY, config.ABIS.UNIV2_FACTORY);
+    SUSHI_ROUTER = await getContract(config.SUSHI_ROUTER, config.ABIS.UNIV2_ROUTER);
+    SUSHI_FACTORY = await getContract(config.SUSHI_FACTORY, config.ABIS.UNIV2_FACTORY);
     // // const FACTORY_ADDRESS = '0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f';
     // // const WETH_ADDRESS = await UNIV2.WETH();
     // const pair = await UNIV2_FACTORY.getPair(config.WETH_ADDRESS, config.USDT_ADDRESS);
