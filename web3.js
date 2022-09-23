@@ -20,9 +20,9 @@ const options = {
 }
 
 const rpc = config.WSRPC;
-const provider = new Web3.providers.WebsocketProvider('wss://' + rpc, options);
+const provider = new Web3.providers.WebsocketProvider(rpc, options);
 const ethersProvider = new ethers.providers.Web3Provider(
-  new Web3WsProvider('wss://' + rpc, {
+  new Web3WsProvider(rpc, {
     clientConfig: {
       keepalive: true,
       keepaliveInterval: 60000, // ms
