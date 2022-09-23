@@ -5,6 +5,9 @@ web3.eth.getBlockNumber().then(n => console.log('block number', n));
 web3.eth.isSyncing().then(n => console.log('syncing', n));
 setInterval(async () => {
   const peer = await web3.eth.net.getPeerCount();
+  const id = await web3.eth.net.isListening();
+  console.log(id);
+  console.log('peer', peer);
   web3.eth.isSyncing().then(n => {
     if (n) {
       console.log('syncing', n);
