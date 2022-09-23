@@ -168,10 +168,11 @@ async function fetchBalance(origin, address, hard) {
 
 
 router.get('/v2/pool', async (ctx) => {
-  const { token0, token1 } = ctx.query;
-  const pool = await getV2Pool(token0, token1);
+  const { token0, token1, engine = 'UNIV2' } = ctx.query;
+  const pool = await getV2Pool(token0, token1, engine);
 
   ctx.body = {
+    code: 0,
     address: pool.address,
     pool: pool.info
   };
