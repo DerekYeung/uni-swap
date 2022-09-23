@@ -173,8 +173,10 @@ router.get('/v2/pool', async (ctx) => {
 
   ctx.body = {
     code: 0,
-    address: pool.address,
-    pool: pool.info
+    data: {
+      address: pool.address,
+      pool: pool.info
+    }
   };
 });
 
