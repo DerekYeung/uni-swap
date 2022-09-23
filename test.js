@@ -22,7 +22,7 @@ web3.eth.subscribe('newBlockHeaders')
   console.log(`subscribed newBlockHeaders => ${subscriptionId}`);
 })
 .on('data', block => {
-  console.log('new block', block.number);
+  console.log('new block', block.number, block);
 })
 .on('error', e => {
   console.error(`subscribe error: ${e.message}`);
