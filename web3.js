@@ -8,6 +8,8 @@ const Decimal = require('decimal.js');
 
 const { ethers, Contract } = require('ethers');
 
+const CachedContract = {};
+
 const options = {
   reconnect: {
     auto: true,
@@ -18,9 +20,9 @@ const options = {
 }
 
 const rpc = config.WSRPC;
-const provider = new Web3.providers.WebsocketProvider('ws://' + rpc, options);
+const provider = new Web3.providers.WebsocketProvider('wss://' + rpc, options);
 const ethersProvider = new ethers.providers.Web3Provider(
-  new Web3WsProvider('ws://' + rpc, {
+  new Web3WsProvider('wss://' + rpc, {
     clientConfig: {
       keepalive: true,
       keepaliveInterval: 60000, // ms
@@ -37,7 +39,12 @@ const web3 = new Web3(provider);
 const eth = web3.eth;
 
 function getContract(address, abi, signerOrProvider = ethersProvider) {
-  return new Contract(address, abi, signerOrProvider);
+  if (CachedContract[address]) {
+    return CachedContract[address];
+  }
+  const contract = new Contract(address, abi, signerOrProvider);
+  CachedContract[address] = contract;
+  return contract;
 }
 
 function getWeb3Contract() {
@@ -45,12 +52,22 @@ function getWeb3Contract() {
 }
 
 async function updatePoolInfo(pool, blockNumber) {
+  if (!pool) {
+    return pool;
+  }
   const contract = pool.contract;
   const info = pool.info || {};
   const token0 = info.token0;
   const token1 = info.token1;
   const decimal0 = info.decimal0;
   const decimal1 = info.decimal1;
+  if (info.empty) {
+    const next = pool.next;
+    if (next && blockNumber >= next) {
+      return null;
+    }
+    return pool;
+  }
   if (!blockNumber) {
     blockNumber = (await eth.getBlock('latest')).number;
   }
