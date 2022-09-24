@@ -435,7 +435,7 @@ io.on('connection', socket => {
   });
   socket.on('get-v2pool', async (params, cb) => {
     try {
-      const pool = await getV2Pool(params.token0, params.token1);
+      const pool = await getV2Pool(params.token0, params.token1, params.engine);
       cb && cb({
         address: pool.address,
         ...pool.info
