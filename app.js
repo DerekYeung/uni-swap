@@ -31,6 +31,8 @@ let UNIV2_ROUTER = null;
 let UNIV2_FACTORY = null;
 let SUSHI_FACTORY = null;
 let SUSHI_ROUTER = null;
+let PANCAKE_FACTORY = null;
+let PANCAKE_ROUTER = null;
 
 const STATES = {
   V2POOLS: {},
@@ -373,7 +375,18 @@ async function fetchV2Pool(tokens, key, engine) {
         return STATES.V2POOLS[key];
       }
     }
-    const factory = engine === 'SUSHI' ? SUSHI_FACTORY : UNIV2_FACTORY;
+    let factory;
+    if (engine === 'UNIV2') {
+      factory = UNIV2_FACTORY;
+    } else if (engine === 'SUSHI') {
+      factory = SUSHI_FACTORY;
+    } else if (engine === 'PANCAKE') {
+      factory = PANCAKE_FACTORY;
+    }
+    if (!factory) {
+      throw new Error('Invalid engine');
+    }
+    console.log(tokens);
     address = await factory.getPair(tokens[0], tokens[1]);
     if (address === '0x0000000000000000000000000000000000000000') {
       pool = {
@@ -507,6 +520,8 @@ waitUntilSynced().then(() => {
     UNIV2_FACTORY = await getContract(config.UNIV2_FACTORY, config.ABIS.UNIV2_FACTORY);
     SUSHI_ROUTER = await getContract(config.SUSHI_ROUTER, config.ABIS.UNIV2_ROUTER);
     SUSHI_FACTORY = await getContract(config.SUSHI_FACTORY, config.ABIS.UNIV2_FACTORY);
+    PANCAKE_ROUTER = await getContract(config.PANCAKE_ROUTER, config.ABIS.UNIV2_ROUTER);
+    PANCAKE_FACTORY = await getContract(config.PANCAKE_FACTORY, config.ABIS.UNIV2_FACTORY);
     // // const FACTORY_ADDRESS = '0x5c69bee701ef814a2b6a3edd4b1652cb9cc5aa6f';
     // // const WETH_ADDRESS = await UNIV2.WETH();
     // const pair = await UNIV2_FACTORY.getPair(config.WETH_ADDRESS, config.USDT_ADDRESS);
