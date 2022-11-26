@@ -13,6 +13,7 @@ const Web3 = require('web3');
 const {
   eth,
   provider,
+  ethersProvider,
   getContract,
   updatePoolInfo,
   getAmountOut,
@@ -21,6 +22,8 @@ const {
 } = require('./web3');
 const NodeCache = require('node-cache');
 const { ethers } = require('ethers');
+const { parseEther } = require('ethers/lib/utils');
+const { v3quoter } = require('./v3');
 const quoter = new Quoter();
 const router = new Router();
 const Cache = new NodeCache({
@@ -246,7 +249,20 @@ router.get('/v2/quote', async (ctx) => {
   const body = await v2quoter(ctx.query);
   ctx.body = body;
 });
-
+router.get('/v3/quote', async (ctx) => {
+  const {
+    fromTokenAddress,
+    toTokenAddress,
+    amount,
+    // fromAddress,
+    // destReceiver,
+    // slippage
+  } = ctx.query;
+  const quote = await v3quoter(fromTokenAddress, toTokenAddress, amount);
+  ctx.body = {
+    quote: quote.bestRouteQuote
+  };
+});
 router.get('/status', async (ctx) => {
   const body = {
     block: Block,
