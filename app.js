@@ -250,18 +250,8 @@ router.get('/v2/quote', async (ctx) => {
   ctx.body = body;
 });
 router.get('/v3/quote', async (ctx) => {
-  const {
-    fromTokenAddress,
-    toTokenAddress,
-    amount,
-    // fromAddress,
-    // destReceiver,
-    // slippage
-  } = ctx.query;
-  const quote = await v3quoter(fromTokenAddress, toTokenAddress, amount);
-  ctx.body = {
-    quote: quote.bestRouteQuote
-  };
+  const quote = await v3quoter(ctx.query);
+  ctx.body = quote;
 });
 router.get('/status', async (ctx) => {
   const body = {
@@ -479,6 +469,17 @@ io.on('connection', socket => {
   socket.on('v2/quote', async (params, cb) => {
     try {
       const body = await v2quoter(params);
+      cb && cb(body);
+    } catch (e) {
+      cb && cb({
+        error: 1,
+        message: e.message
+      });
+    }
+  });
+  socket.on('v3/quote', async (params, cb) => {
+    try {
+      const body = await v3quoter(params);
       cb && cb(body);
     } catch (e) {
       cb && cb({

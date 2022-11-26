@@ -49,10 +49,20 @@ async function getPairs(from, to) {
   return Pairs[key];
 }
 
-async function v3quoter(from, to, amount, direction = 'input') {
-  const pair = await getPairs(from, to);
+async function v3quoter(request = {}) {
+  const {
+    fromTokenAddress,
+    toTokenAddress,
+    amount,
+    direction = 'input'
+    // fromAddress,
+    // destReceiver,
+    // slippage
+  } = request;
+
+  const pair = await getPairs(fromTokenAddress, toTokenAddress);
   const quote = await pair.findBestRoute(amount, direction);
-  return quote;
+  return quote.bestRouteQuote;
 }
 
 module.exports = {
